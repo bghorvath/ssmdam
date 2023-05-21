@@ -1,10 +1,10 @@
 [tool.poetry]
-name = "diffusion-audio-anomaly"
+name = "acoustic-anomaly-detection"
 version = "0.1.0"
 description = ""
 authors = ["Balazs G. Horvath <bghorvath@pm.me>"]
 readme = "README.md"
-packages = [{include = "diffusion_audio_anomaly"}]
+packages = [{include = "acoustic_anomaly_detection"}]
 
 [tool.poetry.dependencies]
 python = ">=3.11 <3.12"
