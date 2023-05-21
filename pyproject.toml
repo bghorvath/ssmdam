@@ -14,11 +14,21 @@ ipykernel = "^6.23.0"
 scikit-learn = "^1.2.2"
 librosa = "^0.10.0.post2"
 matplotlib = "^3.7.1"
-pytest = "^7.3.1"
-pre-commit = "^3.3.1"
 dvc = "^2.56.0"
 dvc-ssh = "^2.22.1"
+torch = { version = ">=2.0.1+cpu", source = "torchcpu" }
+torchvision = { version = ">=0.15.2+cpu", source = "torchcpu" }
+torchaudio = { version = ">=2.0.2+cpu", source = "torchcpu" }
+pytorch-lightning = "^2.0.2"
 
+[tool.poetry.group.dev.dependencies]
+pre-commit = "^3.3.2"
+pytest = "^7.3.1"
+
+[[tool.poetry.source]]
+name = "torchcpu"
+url = "https://download.pytorch.org/whl/cpu"
+priority = "explicit"
 
 [build-system]
 requires = ["poetry-core"]

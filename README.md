@@ -3,8 +3,7 @@
 ## Installation
 
 
-```pyenv install 3.11.3
-pyenv local 3.11.3
+```pyenv install && pyenv local
 pyenv exec pip install poetry
 poetry install
 ```
