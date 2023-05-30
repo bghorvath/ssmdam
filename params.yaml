@@ -1,0 +1,5 @@
+features:
+  spectogram_n_fft: 400
+  spectogram_win_length: 400
+  spectogram_hop_length: 160
+  spectogram_power: 2.0
