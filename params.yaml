@@ -1,5 +1,28 @@
-features:
-  spectogram_n_fft: 400
-  spectogram_win_length: 400
-  spectogram_hop_length: 160
-  spectogram_power: 2.0
+data:
+  audio_dirs:
+    - data/dev/fan
+    - data/dev/pump
+    - data/dev/slider
+    - data/dev/valve
+    - data/dev/ToyCar
+    - data/dev/ToyConveyor
+  train_split: 0.8
+
+transform:
+  type: mel_spectrogram
+  params:
+  # audio params
+    sr: 22050
+    duration: 1
+  # spectrogram params
+    n_fft: 1024
+    hop_length: 512
+    # mel spectrogram params
+    n_mels: 64
+    # mfcc params
+    n_mfcc: 40
+
+train:
+  epochs: 10
+  batch_size: 32
+  lr: 0.001

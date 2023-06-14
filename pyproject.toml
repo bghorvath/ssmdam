@@ -7,19 +7,19 @@ readme = "README.md"
 packages = [{include = "acoustic_anomaly_detection"}]
 
 [tool.poetry.dependencies]
-python = ">=3.11 <3.12"
+python = "3.11.3"
 numpy = "^1.24.3"
 pandas = "^2.0.1"
 ipykernel = "^6.23.0"
-scikit-learn = "^1.2.2"
-librosa = "^0.10.0.post2"
 matplotlib = "^3.7.1"
 dvc = "^2.56.0"
 dvc-ssh = "^2.22.1"
+dvc-gs = "^2.22.1"
+dvclive = "^2.11.0"
 torch = { version = ">=2.0.1+cpu", source = "torchcpu" }
 torchvision = { version = ">=0.15.2+cpu", source = "torchcpu" }
 torchaudio = { version = ">=2.0.2+cpu", source = "torchcpu" }
-pytorch-lightning = "^2.0.2"
+lightning = "^2.0.2"
 
 [tool.poetry.group.dev.dependencies]
 pre-commit = "^3.3.2"
