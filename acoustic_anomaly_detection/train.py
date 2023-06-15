@@ -6,12 +6,12 @@ from lightning.pytorch.callbacks import ModelCheckpoint
 from dvclive import Live
 from dvclive.lightning import DVCLiveLogger
 
-from acoustic_anomaly_detection.dataset import AudioDataset
-from acoustic_anomaly_detection.model import LitAutoEncoder
+from dataset import AudioDataset
+from model import LitAutoEncoder
 
 params = yaml.safe_load(open("params.yaml"))
 
-def main():
+def train():
     dataset = AudioDataset()
     train_split = params["data"]["train_split"]
     train_size = int(len(dataset) * train_split)
@@ -19,7 +19,7 @@ def main():
     train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
     train_loader = DataLoader(train_dataset, batch_size=params["train"]["batch_size"], num_workers=params["train"]["num_workers"], shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=params["train"]["batch_size"], num_workers=params["train"]["num_workers"], shuffle=False)
-    model = LitAutoEncoder(input_size=params["transform"]["params"]["n_mels"] * params["transform"]["params"]["n_fft"] // 2 + 1, hidden_size=params["model"]["hidden_size"], latent_size=params["model"]["latent_size"])
+    model = LitAutoEncoder(input_size=20032, hidden_size=100, latent_size=50)
     with Live(save_dvc_exp=True) as live:
         checkpoint_callback = ModelCheckpoint(
             monitor='val_loss',
@@ -30,8 +30,11 @@ def main():
         )
         trainer = Trainer(
             logger=DVCLiveLogger(),
-            max_epochs=params["max_epochs"],
+            max_epochs=params["train"]["epochs"],
             callbacks=[checkpoint_callback],
         )
         trainer.fit(model, train_loader, val_loader)
         trainer.test(model, val_loader)
+
+if __name__ == "__main__":
+    train()

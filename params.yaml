@@ -12,8 +12,8 @@ transform:
   type: mel_spectrogram
   params:
   # audio params
-    sr: 22050
-    duration: 1
+    sr: 16000
+    duration: 10
   # spectrogram params
     n_fft: 1024
     hop_length: 512
@@ -26,3 +26,4 @@ train:
   epochs: 10
   batch_size: 32
   lr: 0.001
+  num_workers: 8

@@ -17,8 +17,10 @@ class LitAutoEncoder(pl.LightningModule):
         )
 
     def forward(self, x):
-        latent = self.encoder(x)
-        return self.decoder(latent)
+        x = nn.Flatten()(x)
+        x = self.encoder(x)
+        x = self.decoder(x)
+        return x.view(x.shape[0], 64, -1)
 
     def training_step(self, batch, batch_idx):
         x, _ = batch
