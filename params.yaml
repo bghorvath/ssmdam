@@ -22,6 +22,12 @@ transform:
     # mfcc params
     n_mfcc: 40
 
+model:
+  type: autoencoder
+  params:
+    hidden_size: 128
+    latent_size: 64
+
 train:
   epochs: 10
   batch_size: 32

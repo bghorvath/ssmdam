@@ -19,7 +19,17 @@ def train():
     train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
     train_loader = DataLoader(train_dataset, batch_size=params["train"]["batch_size"], num_workers=params["train"]["num_workers"], shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=params["train"]["batch_size"], num_workers=params["train"]["num_workers"], shuffle=False)
-    model = LitAutoEncoder(input_size=20032, hidden_size=100, latent_size=50)
+    input_size = train_dataset[0][0].shape[1:3].numel()
+
+    model = {
+        "autoencoder": LitAutoEncoder,
+    }[params["model"]["type"]]
+
+    model_params = {k:v for k, v in params["model"]["params"].items() if k in model.__init__.__code__.co_varnames}
+
+    model = model(**model_params)
+
+    model = LitAutoEncoder(input_size=input_size, hidden_size=params["model"]["params"]["hidden_size"], latent_size=params["model"]["params"]["latent_size"])
     with Live(save_dvc_exp=True) as live:
         checkpoint_callback = ModelCheckpoint(
             monitor='val_loss',
@@ -34,7 +44,6 @@ def train():
             callbacks=[checkpoint_callback],
         )
         trainer.fit(model, train_loader, val_loader)
-        trainer.test(model, val_loader)
 
 if __name__ == "__main__":
     train()

@@ -5,6 +5,7 @@ import lightning.pytorch as pl
 class LitAutoEncoder(pl.LightningModule):
     def __init__(self, input_size, hidden_size, latent_size):
         super().__init__()
+        self.flatten = nn.Flatten()
         self.encoder = nn.Sequential(
             nn.Linear(input_size, hidden_size),
             nn.ReLU(),
@@ -17,10 +18,10 @@ class LitAutoEncoder(pl.LightningModule):
         )
 
     def forward(self, x):
-        x = nn.Flatten()(x)
-        x = self.encoder(x)
-        x = self.decoder(x)
-        return x.view(x.shape[0], 64, -1)
+        tensors = self.flatten(x)
+        tensors = self.encoder(tensors)
+        tensors = self.decoder(tensors)
+        return tensors.view(x.shape)
 
     def training_step(self, batch, batch_idx):
         x, _ = batch
