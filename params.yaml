@@ -31,5 +31,7 @@ model:
 train:
   epochs: 10
   batch_size: 32
+  seed: 42
   lr: 0.001
   num_workers: 8
+  ckpt_path: models/best.ckpt

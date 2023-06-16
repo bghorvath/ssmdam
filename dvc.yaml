@@ -1,0 +1,25 @@
+stages:
+  train:
+    cmd: python acoustic_anomaly_detection/train.py
+    params:
+      - data
+      - transform
+      - model
+      - train
+    deps:
+      - data/
+      - acoustic_anomaly_detection/dataset.py
+      - acoustic_anomaly_detection/model.py
+    outs:
+      - models/
+
+  evaluate:
+    cmd: python acoustic_anomaly_detection/evaluate.py
+    params:
+      - model
+    deps:
+      - data/
+      - acoustic_anomaly_detection/dataset.py
+      - acoustic_anomaly_detection/model.py
+      - acoustic_anomaly_detection/train.py
+      - models/

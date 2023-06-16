@@ -20,6 +20,7 @@ torch = { version = ">=2.0.1+cpu", source = "torchcpu" }
 torchvision = { version = ">=0.15.2+cpu", source = "torchcpu" }
 torchaudio = { version = ">=2.0.2+cpu", source = "torchcpu" }
 lightning = "^2.0.2"
+torcheval = "^0.0.6"
 
 [tool.poetry.group.dev.dependencies]
 pre-commit = "^3.3.2"

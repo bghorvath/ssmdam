@@ -8,12 +8,12 @@ from torchaudio.transforms import MelSpectrogram, MFCC, Spectrogram
 params = yaml.safe_load(open("params.yaml"))
 
 class AudioDataset(Dataset):
-    def __init__(self) -> None:
+    def __init__(self, test: bool = False) -> None:
         self.audio_dirs = params["data"]["audio_dirs"]
 
         self.file_list = []
         for audio_dir in self.audio_dirs:
-            audio_path = os.path.join(audio_dir, "train")
+            audio_path = os.path.join(audio_dir, "test" if test else "train")
             file_list = [os.path.join(audio_path, file) for file in os.listdir(audio_path)]
             self.file_list += file_list
 
@@ -33,29 +33,30 @@ class AudioDataset(Dataset):
     def __len__(self) -> int:
         return len(self.file_list)
 
-    def _cut(self, signal):
-        length = params["transform"]["params"]["sr"] * self.duration
+    def _cut(self, signal: torch.Tensor) -> torch.Tensor:
+        length = self.sr * self.duration
         if signal.shape[1] > length:
             signal = signal[:, :length]
         elif signal.shape[1] < length:
             signal = torch.nn.functional.pad(signal, (0, length - signal.shape[1]))
         return signal
 
-    def _resample(self, signal, sr):
-        if sr != params["transform"]["params"]["sr"]:
-            resampler = torchaudio.transforms.Resample(sr, params["transform"]["params"]["sr"])
+    def _resample(self, signal: torch.Tensor, sr: int) -> torch.Tensor:
+        if sr != self.sr:
+            resampler = torchaudio.transforms.Resample(sr, self.sr)
             signal = resampler(signal)
         return signal
 
-    def _mix_down(self, signal):
+    def _mix_down(self, signal: torch.Tensor) -> torch.Tensor:
         if signal.shape[0] > 1:
             signal = torch.mean(signal, dim=0, keepdim=True)
         return signal
 
     def __getitem__(self, idx) -> tuple:
         audio_path = self.file_list[idx]
-        label = os.path.basename(audio_path).split("_")[0]
-        signal, sr = torchaudio.load(audio_path)
+        label = os.path.basename(p=audio_path).split("_")[0]
+        label = torch.tensor(1) if label == "anomaly" else torch.tensor(0)
+        signal, sr = torchaudio.load(audio_path) # type: ignore
         signal = self._resample(signal, sr)
         signal = self._mix_down(signal)
         signal = self._cut(signal)

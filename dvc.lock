@@ -1,0 +1,79 @@
+schema: '2.0'
+stages:
+  train:
+    cmd: python acoustic_anomaly_detection/train.py
+    deps:
+    - path: acoustic_anomaly_detection/dataset.py
+      md5: fd96a8cabd06e1052940707ce6f94ac1
+      size: 2443
+    - path: acoustic_anomaly_detection/model.py
+      md5: 3ab0805293b56bf69a66d709e6982b6e
+      size: 2086
+    - path: data/
+      md5: 9f0c9c99e19b18399ef3644fbdea9688.dir
+      size: 10123891428
+      nfiles: 30987
+    params:
+      params.yaml:
+        data:
+          audio_dirs:
+          - data/dev/fan
+          - data/dev/pump
+          - data/dev/slider
+          - data/dev/valve
+          - data/dev/ToyCar
+          - data/dev/ToyConveyor
+          train_split: 0.8
+        model:
+          type: autoencoder
+          params:
+            hidden_size: 128
+            latent_size: 64
+        train:
+          epochs: 3
+          batch_size: 32
+          seed: 42
+          lr: 0.001
+          num_workers: 8
+          ckpt_path: models/best.ckpt
+        transform:
+          type: mel_spectrogram
+          params:
+            sr: 16000
+            duration: 10
+            n_fft: 1024
+            hop_length: 512
+            n_mels: 64
+            n_mfcc: 40
+    outs:
+    - path: models/
+      md5: fba34d3d7e5a2a5b5c6421dfb7526241.dir
+      size: 185970694
+      nfiles: 3
+  evaluate:
+    cmd: python acoustic_anomaly_detection/evaluate.py
+    deps:
+    - path: acoustic_anomaly_detection/dataset.py
+      md5: fd96a8cabd06e1052940707ce6f94ac1
+      size: 2443
+    - path: acoustic_anomaly_detection/model.py
+      md5: 3ab0805293b56bf69a66d709e6982b6e
+      size: 2086
+    - path: acoustic_anomaly_detection/train.py
+      md5: 2f1e064cec7892c70268e4d4c76df680
+      size: 2210
+    - path: data/
+      md5: 9f0c9c99e19b18399ef3644fbdea9688.dir
+      size: 10123891428
+      nfiles: 30987
+    - path: models/
+      md5: fba34d3d7e5a2a5b5c6421dfb7526241.dir
+      size: 185970694
+      nfiles: 3
+    params:
+      params.yaml:
+        model:
+          type: autoencoder
+          params:
+            hidden_size: 128
+            latent_size: 64

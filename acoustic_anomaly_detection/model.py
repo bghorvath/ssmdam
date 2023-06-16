@@ -1,10 +1,12 @@
 import torch
 from torch import nn
 import lightning.pytorch as pl
+from torcheval.metrics.functional import binary_auroc, binary_auprc
 
 class LitAutoEncoder(pl.LightningModule):
     def __init__(self, input_size, hidden_size, latent_size):
         super().__init__()
+        self.save_hyperparameters()
         self.flatten = nn.Flatten()
         self.encoder = nn.Sequential(
             nn.Linear(input_size, hidden_size),
@@ -36,6 +38,25 @@ class LitAutoEncoder(pl.LightningModule):
         loss = nn.functional.mse_loss(x_hat, x)
         self.log('val_loss', loss)
         return loss
+
+    def on_test_epoch_start(self) -> None:
+        self.error_score = torch.tensor([])
+        self.y = torch.tensor([])
+
+    def test_step(self, batch, batch_idx):
+        x, y = batch
+        x_hat = self(x)
+        loss = nn.functional.mse_loss(x_hat[y == 0], x[y == 0])
+        self.log('test_loss', loss)
+        error_score = torch.mean(torch.square(x_hat - x), dim=tuple(range(1, x_hat.ndim)))
+        self.error_score = torch.cat([self.error_score, error_score])
+        self.y = torch.cat([self.y, y])
+
+    def on_test_epoch_end(self):
+        auroc = binary_auroc(self.error_score, self.y)
+        auprc = binary_auprc(self.error_score, self.y)
+        self.log('auroc_epoch', auroc)
+        self.log('auprc_epoch', auprc)
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=1e-3)
