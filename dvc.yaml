@@ -10,6 +10,7 @@ stages:
       - data/
       - acoustic_anomaly_detection/dataset.py
       - acoustic_anomaly_detection/model.py
+      - acoustic_anomaly_detection/train.py
     outs:
       - models/
 
@@ -22,4 +23,5 @@ stages:
       - acoustic_anomaly_detection/dataset.py
       - acoustic_anomaly_detection/model.py
       - acoustic_anomaly_detection/train.py
+      - acoustic_anomaly_detection/evaluate.py
       - models/

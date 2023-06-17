@@ -1,5 +1,4 @@
 [core]
-    remote = nl
-['remote "nl"']
-    url = ssh://bghorvath@192.168.68.107:22/mnt/mybook/projects/diffusion-audio-anomaly/data
-    ask_password = true
+    remote = storage
+['remote "storage"']
+    url = gs://acoustic-anomaly-detection

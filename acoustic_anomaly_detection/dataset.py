@@ -1,4 +1,5 @@
 import os
+import random
 import yaml
 import torch
 from torch.utils.data import Dataset
@@ -8,7 +9,7 @@ from torchaudio.transforms import MelSpectrogram, MFCC, Spectrogram
 params = yaml.safe_load(open("params.yaml"))
 
 class AudioDataset(Dataset):
-    def __init__(self, test: bool = False) -> None:
+    def __init__(self, test: bool = False, fast_dev_run: bool = False) -> None:
         self.audio_dirs = params["data"]["audio_dirs"]
 
         self.file_list = []
@@ -16,6 +17,10 @@ class AudioDataset(Dataset):
             audio_path = os.path.join(audio_dir, "test" if test else "train")
             file_list = [os.path.join(audio_path, file) for file in os.listdir(audio_path)]
             self.file_list += file_list
+
+        if fast_dev_run:
+            random.seed(params["train"]["seed"])
+            self.file_list = random.sample(self.file_list, 1000)
 
         self.sr = params["transform"]["params"]["sr"]
         self.duration = params["transform"]["params"]["duration"]
