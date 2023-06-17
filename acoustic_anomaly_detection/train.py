@@ -13,7 +13,7 @@ from model import LitAutoEncoder
 params = yaml.safe_load(open("params.yaml"))
 
 def train():
-    dataset = AudioDataset()
+    dataset = AudioDataset(fast_run=True)
     train_split = params["data"]["train_split"]
     train_size = int(len(dataset) * train_split)
     val_size = len(dataset) - train_size
@@ -30,6 +30,9 @@ def train():
     train_dataset, val_dataset = random_split(dataset, [train_size, val_size], generator=generator)
     train_loader = DataLoader(train_dataset, batch_size=batch_size, num_workers=num_workers, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=batch_size, num_workers=num_workers, shuffle=False)
+    
+    test_dataset = AudioDataset(test=True, fast_run=True)
+    test_loader = DataLoader(test_dataset, batch_size=128, num_workers=num_workers, shuffle=False)
 
     input_size = train_dataset[0][0].shape[1:].numel()
 
@@ -39,7 +42,10 @@ def train():
     model_params = {k:v for k, v in params["model"]["params"].items() if k in model.__init__.__code__.co_varnames}
     model = model(input_size=input_size, **model_params)
 
-    with Live(save_dvc_exp=True) as live:
+    with Live(
+        dir = "results",
+        # save_dvc_exp=True
+        ) as live:
         checkpoint = ModelCheckpoint(
             dirpath=ckpt_dir_path,
             monitor='val_loss',
@@ -47,7 +53,7 @@ def train():
         )
         trainer = Trainer(
             logger=DVCLiveLogger(
-                save_dvc_exp=True,
+                #save_dvc_exp=True,
                 experiment=live
             ),
             max_epochs=epochs,
@@ -59,6 +65,11 @@ def train():
         #     type="model",
         #     name="best"
         # )
+    # trainer.test(
+    #     model,
+    #     dataloaders=test_loader,
+    #     verbose=False,
+    # )
 
 if __name__ == "__main__":
     train()
