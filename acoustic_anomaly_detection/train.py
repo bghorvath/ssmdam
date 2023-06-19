@@ -8,12 +8,12 @@ from dvclive import Live
 from dvclive.lightning import DVCLiveLogger
 
 from dataset import AudioDataset
-from model import LitAutoEncoder
+from model import get_model
 
 params = yaml.safe_load(open("params.yaml"))
 
 def train():
-    dataset = AudioDataset(fast_dev_run=True)
+    dataset = AudioDataset(fast_dev_run=params["data"]["fast_dev_run"])
     train_split = params["data"]["train_split"]
     train_size = int(len(dataset) * train_split)
     val_size = len(dataset) - train_size
@@ -34,11 +34,7 @@ def train():
 
     input_size = train_dataset[0][0].shape[1:].numel()
 
-    model = {
-        "autoencoder": LitAutoEncoder,
-    }[params["model"]["type"]]
-    model_params = {k:v for k, v in params["model"]["params"].items() if k in model.__init__.__code__.co_varnames}
-    model = model(input_size=input_size, **model_params)
+    model = get_model(input_size=input_size)
 
     with Live(dir=log_dir) as live:
         checkpoint = ModelCheckpoint(

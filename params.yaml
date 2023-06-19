@@ -12,6 +12,7 @@ data:
     - data/dev/ToyCar
     - data/dev/ToyConveyor
   train_split: 0.8
+  fast_dev_run: False
 
 transform:
   type: mel_spectrogram
@@ -28,8 +29,8 @@ transform:
     n_mfcc: 40
 
 model:
-  type: autoencoder
-  params:
+  type: baseline_ae
+  layers:
     hidden_size: 128
     latent_size: 64
 
