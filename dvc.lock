@@ -7,11 +7,11 @@ stages:
       md5: 47b7e5911307ab39923be148df66e7be
       size: 2569
     - path: acoustic_anomaly_detection/model.py
-      md5: a006d8262c3171b24299381e50c19215
-      size: 4929
+      md5: 35ddf2086fd595efd8411ffb1d84a613
+      size: 5072
     - path: acoustic_anomaly_detection/train.py
-      md5: f63d8c66c6024a488f5d735478e4bd6f
-      size: 1974
+      md5: c1568d90835e41b5fd04b1da44e891ad
+      size: 2000
     - path: data/
       md5: 9f0c9c99e19b18399ef3644fbdea9688.dir
       size: 10123891428
@@ -27,6 +27,7 @@ stages:
           - data/dev/ToyCar
           - data/dev/ToyConveyor
           train_split: 0.8
+          fast_dev_run: false
         model:
           type: baseline_ae
           layers:
@@ -34,7 +35,7 @@ stages:
             latent_size: 64
         train:
           seed: 42
-          epochs: 10
+          epochs: 20
           batch_size: 32
           lr: 0.001
         transform:
@@ -48,8 +49,8 @@ stages:
             n_mfcc: 40
     outs:
     - path: models/
-      md5: 8d9d1a7c6b9d2c6c0b72aabfce79dd09.dir
-      size: 63255449
+      md5: d166c81b09f402abf3888393881b238c.dir
+      size: 63255513
       nfiles: 1
   evaluate:
     cmd: python acoustic_anomaly_detection/evaluate.py
@@ -58,21 +59,21 @@ stages:
       md5: 47b7e5911307ab39923be148df66e7be
       size: 2569
     - path: acoustic_anomaly_detection/evaluate.py
-      md5: 9e0f56b89d4b786802e4db1eac961226
-      size: 1033
+      md5: 13bdc9454756c603eaed9dbab0ca0ecd
+      size: 1059
     - path: acoustic_anomaly_detection/model.py
-      md5: a006d8262c3171b24299381e50c19215
-      size: 4929
+      md5: 35ddf2086fd595efd8411ffb1d84a613
+      size: 5072
     - path: acoustic_anomaly_detection/train.py
-      md5: f63d8c66c6024a488f5d735478e4bd6f
-      size: 1974
+      md5: c1568d90835e41b5fd04b1da44e891ad
+      size: 2000
     - path: data/
       md5: 9f0c9c99e19b18399ef3644fbdea9688.dir
       size: 10123891428
       nfiles: 30987
     - path: models/
-      md5: 8d9d1a7c6b9d2c6c0b72aabfce79dd09.dir
-      size: 63255449
+      md5: d166c81b09f402abf3888393881b238c.dir
+      size: 63255513
       nfiles: 1
     params:
       params.yaml:
