@@ -10,8 +10,8 @@ stages:
       md5: 35ddf2086fd595efd8411ffb1d84a613
       size: 5072
     - path: acoustic_anomaly_detection/train.py
-      md5: 7ce0e662ae39ff07f2375cfbeccc2e68
-      size: 2239
+      md5: 9271473f5c254c8b185c3824c0d3ed48
+      size: 2273
     - path: data/
       md5: 9f0c9c99e19b18399ef3644fbdea9688.dir
       size: 10123891428
@@ -49,9 +49,9 @@ stages:
             n_mfcc: 40
     outs:
     - path: models/
-      md5: e7d164514d9d7be5f9a54e4cb7cf91ee.dir
-      size: 2464690319
-      nfiles: 39
+      md5: 910a9f8b13b6f097a14eac6939977445.dir
+      size: 630806650
+      nfiles: 10
   evaluate:
     cmd: python acoustic_anomaly_detection/evaluate.py
     deps:
@@ -59,22 +59,22 @@ stages:
       md5: 5ab20cbf324305015025034eaa55fd2c
       size: 2653
     - path: acoustic_anomaly_detection/evaluate.py
-      md5: aa700235bdda575dfb62ec33e5dd7498
-      size: 1246
+      md5: 31a62a4442baf38f6c6c19b38b6e898d
+      size: 1276
     - path: acoustic_anomaly_detection/model.py
       md5: 35ddf2086fd595efd8411ffb1d84a613
       size: 5072
     - path: acoustic_anomaly_detection/train.py
-      md5: 7ce0e662ae39ff07f2375cfbeccc2e68
-      size: 2239
+      md5: 9271473f5c254c8b185c3824c0d3ed48
+      size: 2273
     - path: data/
       md5: 9f0c9c99e19b18399ef3644fbdea9688.dir
       size: 10123891428
       nfiles: 30987
     - path: models/
-      md5: e7d164514d9d7be5f9a54e4cb7cf91ee.dir
-      size: 2464690319
-      nfiles: 39
+      md5: 910a9f8b13b6f097a14eac6939977445.dir
+      size: 630806650
+      nfiles: 10
     params:
       params.yaml:
         model:
