@@ -34,17 +34,24 @@ def train(
     num_workers = params["misc"]["num_workers"]
     ckpt_path = params["misc"]["ckpt_path"]
     ckpt_dir_path = "/".join(ckpt_path.split("/")[:-1])
-    ckpt_filename = ckpt_path.split("/")[-1].split(".")[0]
 
     generator = torch.Generator().manual_seed(seed)
     train_dataset, val_dataset = random_split(
         dataset, [train_size, val_size], generator=generator
     )
     train_loader = DataLoader(
-        train_dataset, batch_size=batch_size, num_workers=num_workers, shuffle=True
+        train_dataset,
+        batch_size=batch_size,
+        num_workers=num_workers,
+        shuffle=True,
+        drop_last=True,
     )
     val_loader = DataLoader(
-        val_dataset, batch_size=batch_size, num_workers=num_workers, shuffle=False
+        val_dataset,
+        batch_size=batch_size,
+        num_workers=num_workers,
+        shuffle=False,
+        drop_last=True,
     )
 
     input_size = train_dataset[0][0].shape[1:].numel()
@@ -58,7 +65,7 @@ def train(
         checkpoint = ModelCheckpoint(
             dirpath=ckpt_dir_path,
             monitor="val_loss",
-            filename=ckpt_filename,
+            filename=exp_name,
         )
         trainer = Trainer(
             logger=DVCLiveLogger(experiment=live),

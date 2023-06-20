@@ -32,7 +32,7 @@ model:
   type: baseline_ae
   layers:
     hidden_size: 128
-    latent_size: 64
+    latent_size: 8
 
 train:
   seed: 42
