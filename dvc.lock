@@ -4,14 +4,14 @@ stages:
     cmd: python acoustic_anomaly_detection/train.py
     deps:
     - path: acoustic_anomaly_detection/dataset.py
-      md5: 47b7e5911307ab39923be148df66e7be
-      size: 2569
+      md5: a4469bc2d94fe0f8ae658a70319565c7
+      size: 2563
     - path: acoustic_anomaly_detection/model.py
       md5: 35ddf2086fd595efd8411ffb1d84a613
       size: 5072
     - path: acoustic_anomaly_detection/train.py
-      md5: c1568d90835e41b5fd04b1da44e891ad
-      size: 2000
+      md5: cd6e5c78c370ca4f427489ccc1f0493a
+      size: 2199
     - path: data/
       md5: 9f0c9c99e19b18399ef3644fbdea9688.dir
       size: 10123891428
@@ -27,7 +27,7 @@ stages:
           - data/dev/ToyCar
           - data/dev/ToyConveyor
           train_split: 0.8
-          fast_dev_run: false
+          fast_dev_run: true
         model:
           type: baseline_ae
           layers:
@@ -35,7 +35,7 @@ stages:
             latent_size: 64
         train:
           seed: 42
-          epochs: 20
+          epochs: 5
           batch_size: 32
           lr: 0.001
         transform:
@@ -49,32 +49,32 @@ stages:
             n_mfcc: 40
     outs:
     - path: models/
-      md5: d166c81b09f402abf3888393881b238c.dir
-      size: 63255513
-      nfiles: 1
+      md5: da91c30f0d002ce2ab63eee92b474649.dir
+      size: 1644641674
+      nfiles: 26
   evaluate:
     cmd: python acoustic_anomaly_detection/evaluate.py
     deps:
     - path: acoustic_anomaly_detection/dataset.py
-      md5: 47b7e5911307ab39923be148df66e7be
-      size: 2569
+      md5: a4469bc2d94fe0f8ae658a70319565c7
+      size: 2563
     - path: acoustic_anomaly_detection/evaluate.py
-      md5: 13bdc9454756c603eaed9dbab0ca0ecd
-      size: 1059
+      md5: 11b8dd9c84e17104b87d7c1fb8c27cbf
+      size: 1265
     - path: acoustic_anomaly_detection/model.py
       md5: 35ddf2086fd595efd8411ffb1d84a613
       size: 5072
     - path: acoustic_anomaly_detection/train.py
-      md5: c1568d90835e41b5fd04b1da44e891ad
-      size: 2000
+      md5: cd6e5c78c370ca4f427489ccc1f0493a
+      size: 2199
     - path: data/
       md5: 9f0c9c99e19b18399ef3644fbdea9688.dir
       size: 10123891428
       nfiles: 30987
     - path: models/
-      md5: d166c81b09f402abf3888393881b238c.dir
-      size: 63255513
-      nfiles: 1
+      md5: da91c30f0d002ce2ab63eee92b474649.dir
+      size: 1644641674
+      nfiles: 26
     params:
       params.yaml:
         model:

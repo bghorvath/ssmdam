@@ -1,3 +1,4 @@
+import os
 import yaml
 import torch
 from torch.utils.data import random_split
@@ -12,8 +13,16 @@ from model import get_model
 
 params = yaml.safe_load(open("params.yaml"))
 
-def train():
-    dataset = AudioDataset(fast_dev_run=params["data"]["fast_dev_run"])
+
+def train(
+    machine_type: str,
+    machine_id: str,
+):
+    dataset = AudioDataset(
+        machine_type=machine_type,
+        machine_id=machine_id,
+        fast_dev_run=params["data"]["fast_dev_run"],
+    )
     train_split = params["data"]["train_split"]
     train_size = int(len(dataset) * train_split)
     val_size = len(dataset) - train_size
@@ -28,18 +37,27 @@ def train():
     ckpt_filename = ckpt_path.split("/")[-1].split(".")[0]
 
     generator = torch.Generator().manual_seed(seed)
-    train_dataset, val_dataset = random_split(dataset, [train_size, val_size], generator=generator)
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, num_workers=num_workers, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, num_workers=num_workers, shuffle=False)
+    train_dataset, val_dataset = random_split(
+        dataset, [train_size, val_size], generator=generator
+    )
+    train_loader = DataLoader(
+        train_dataset, batch_size=batch_size, num_workers=num_workers, shuffle=True
+    )
+    val_loader = DataLoader(
+        val_dataset, batch_size=batch_size, num_workers=num_workers, shuffle=False
+    )
 
     input_size = train_dataset[0][0].shape[1:].numel()
 
     model = get_model(input_size=input_size)
 
-    with Live(dir=log_dir) as live:
+    exp_name = f"{machine_type}_{machine_id}"
+
+    with Live(dir=log_dir, save_dvc_exp=True) as live:
+        live._exp_name = exp_name
         checkpoint = ModelCheckpoint(
             dirpath=ckpt_dir_path,
-            monitor='val_loss',
+            monitor="val_loss",
             filename=ckpt_filename,
         )
         trainer = Trainer(
@@ -53,6 +71,3 @@ def train():
         #     type="model",
         #     name="best"
         # )
-
-if __name__ == "__main__":
-    train()

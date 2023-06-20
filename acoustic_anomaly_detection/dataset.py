@@ -8,19 +8,27 @@ from torchaudio.transforms import MelSpectrogram, MFCC, Spectrogram
 
 params = yaml.safe_load(open("params.yaml"))
 
-class AudioDataset(Dataset):
-    def __init__(self, test: bool = False, fast_dev_run: bool = False) -> None:
-        self.audio_dirs = params["data"]["audio_dirs"]
 
-        self.file_list = []
-        for audio_dir in self.audio_dirs:
-            audio_path = os.path.join(audio_dir, "test" if test else "train")
-            file_list = [os.path.join(audio_path, file) for file in os.listdir(audio_path)]
-            self.file_list += file_list
+class AudioDataset(Dataset):
+    def __init__(
+        self,
+        machine_type: str,
+        machine_id: str,
+        test: bool = False,
+        fast_dev_run: bool = False,
+    ) -> None:
+        audio_path = os.path.join(
+            "data", "dev", machine_type, "test" if test else "train"
+        )
+        self.file_list = [
+            os.path.join(audio_path, file)
+            for file in os.listdir(audio_path)
+            if file.split("_")[2] == machine_id
+        ]
 
         if fast_dev_run:
             random.seed(params["train"]["seed"])
-            self.file_list = random.sample(self.file_list, 1000)
+            self.file_list = random.sample(self.file_list, 100)
 
         self.sr = params["transform"]["params"]["sr"]
         self.duration = params["transform"]["params"]["duration"]
@@ -31,7 +39,11 @@ class AudioDataset(Dataset):
             "spectrogram": Spectrogram,
         }[params["transform"]["type"]]
 
-        transform_params = {k:v for k, v in params["transform"]["params"].items() if k in self.transform.__init__.__code__.co_varnames}
+        transform_params = {
+            k: v
+            for k, v in params["transform"]["params"].items()
+            if k in self.transform.__init__.__code__.co_varnames
+        }
 
         self.transform = self.transform(**transform_params)
 
@@ -61,7 +73,7 @@ class AudioDataset(Dataset):
         audio_path = self.file_list[idx]
         label = os.path.basename(p=audio_path).split("_")[0]
         label = torch.tensor(1) if label == "anomaly" else torch.tensor(0)
-        signal, sr = torchaudio.load(audio_path) # type: ignore
+        signal, sr = torchaudio.load(audio_path)  # type: ignore
         signal = self._resample(signal, sr)
         signal = self._mix_down(signal)
         signal = self._cut(signal)
