@@ -15,7 +15,7 @@ def evaluate(
 ):
     num_workers = params["misc"]["num_workers"]
     log_dir = params["misc"]["log_dir"]
-    ckpt_path = params["misc"]["ckpt_path"]
+    ckpt_path = f"models/{machine_type}_{machine_id}.ckpt"
 
     dataset = AudioDataset(
         machine_type=machine_type,
@@ -24,7 +24,7 @@ def evaluate(
         fast_dev_run=params["data"]["fast_dev_run"],
     )
     test_loader = DataLoader(
-        dataset, batch_size=128, num_workers=num_workers, shuffle=False
+        dataset, batch_size=32, num_workers=num_workers, shuffle=False, drop_last=True
     )
 
     input_size = dataset[0][0].shape[1:].numel()

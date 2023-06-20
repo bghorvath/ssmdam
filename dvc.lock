@@ -4,14 +4,14 @@ stages:
     cmd: python acoustic_anomaly_detection/train.py
     deps:
     - path: acoustic_anomaly_detection/dataset.py
-      md5: a4469bc2d94fe0f8ae658a70319565c7
-      size: 2563
+      md5: 5ab20cbf324305015025034eaa55fd2c
+      size: 2653
     - path: acoustic_anomaly_detection/model.py
       md5: 35ddf2086fd595efd8411ffb1d84a613
       size: 5072
     - path: acoustic_anomaly_detection/train.py
-      md5: cd6e5c78c370ca4f427489ccc1f0493a
-      size: 2199
+      md5: 7ce0e662ae39ff07f2375cfbeccc2e68
+      size: 2239
     - path: data/
       md5: 9f0c9c99e19b18399ef3644fbdea9688.dir
       size: 10123891428
@@ -27,15 +27,15 @@ stages:
           - data/dev/ToyCar
           - data/dev/ToyConveyor
           train_split: 0.8
-          fast_dev_run: true
+          fast_dev_run: false
         model:
           type: baseline_ae
           layers:
             hidden_size: 128
-            latent_size: 64
+            latent_size: 8
         train:
           seed: 42
-          epochs: 5
+          epochs: 10
           batch_size: 32
           lr: 0.001
         transform:
@@ -49,36 +49,36 @@ stages:
             n_mfcc: 40
     outs:
     - path: models/
-      md5: da91c30f0d002ce2ab63eee92b474649.dir
-      size: 1644641674
-      nfiles: 26
+      md5: e7d164514d9d7be5f9a54e4cb7cf91ee.dir
+      size: 2464690319
+      nfiles: 39
   evaluate:
     cmd: python acoustic_anomaly_detection/evaluate.py
     deps:
     - path: acoustic_anomaly_detection/dataset.py
-      md5: a4469bc2d94fe0f8ae658a70319565c7
-      size: 2563
+      md5: 5ab20cbf324305015025034eaa55fd2c
+      size: 2653
     - path: acoustic_anomaly_detection/evaluate.py
-      md5: 11b8dd9c84e17104b87d7c1fb8c27cbf
-      size: 1265
+      md5: aa700235bdda575dfb62ec33e5dd7498
+      size: 1246
     - path: acoustic_anomaly_detection/model.py
       md5: 35ddf2086fd595efd8411ffb1d84a613
       size: 5072
     - path: acoustic_anomaly_detection/train.py
-      md5: cd6e5c78c370ca4f427489ccc1f0493a
-      size: 2199
+      md5: 7ce0e662ae39ff07f2375cfbeccc2e68
+      size: 2239
     - path: data/
       md5: 9f0c9c99e19b18399ef3644fbdea9688.dir
       size: 10123891428
       nfiles: 30987
     - path: models/
-      md5: da91c30f0d002ce2ab63eee92b474649.dir
-      size: 1644641674
-      nfiles: 26
+      md5: e7d164514d9d7be5f9a54e4cb7cf91ee.dir
+      size: 2464690319
+      nfiles: 39
     params:
       params.yaml:
         model:
           type: baseline_ae
           layers:
             hidden_size: 128
-            latent_size: 64
+            latent_size: 8
