@@ -1,16 +1,16 @@
 misc:
   num_workers: 8
-  ckpt_path: models/best.ckpt
   log_dir: results
 
 data:
-  audio_dirs:
-    - data/dev/fan
-    - data/dev/pump
-    - data/dev/slider
-    - data/dev/valve
-    - data/dev/ToyCar
-    - data/dev/ToyConveyor
+  data_dir: data/dev
+  source_dirs:
+    - fan
+    - pump
+    - slider
+    - valve
+    - ToyCar
+    - ToyConveyor
   train_split: 0.8
   fast_dev_run: False
 
@@ -35,6 +35,7 @@ model:
     latent_size: 64
 
 train:
+  fresh_start: True
   seed: 42
   epochs: 10
   batch_size: 32

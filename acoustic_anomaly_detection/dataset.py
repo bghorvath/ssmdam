@@ -17,9 +17,8 @@ class AudioDataset(Dataset):
         test: bool = False,
         fast_dev_run: bool = False,
     ) -> None:
-        audio_path = os.path.join(
-            "data", "dev", machine_type, "test" if test else "train"
-        )
+        data_dir = params["data"]["data_dir"]
+        audio_path = os.path.join(data_dir, machine_type, "test" if test else "train")
         self.file_list = [
             os.path.join(audio_path, file)
             for file in os.listdir(audio_path)
