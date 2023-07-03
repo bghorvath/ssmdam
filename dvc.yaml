@@ -2,12 +2,12 @@ stages:
   train:
     cmd: python acoustic_anomaly_detection/train.py
     params:
-      - data
+      - data.train_split, data.fast_dev_run, data.source.dev
       - transform
       - model
       - train
     deps:
-      - data/
+      - data/dev
       - acoustic_anomaly_detection/dataset.py
       - acoustic_anomaly_detection/model.py
       - acoustic_anomaly_detection/train.py
@@ -19,9 +19,7 @@ stages:
     params:
       - model
     deps:
-      - data/
-      - acoustic_anomaly_detection/dataset.py
-      - acoustic_anomaly_detection/model.py
-      - acoustic_anomaly_detection/train.py
-      - acoustic_anomaly_detection/evaluate.py
       - models/
+      - acoustic_anomaly_detection/evaluate.py
+    outs:
+      - results/
