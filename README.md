@@ -6,5 +6,5 @@
 ```
 pyenv install && pyenv local
 pyenv exec pip install poetry
-poetry install
+poetry install --with [cpu|gpu]
 ```
