@@ -1,4 +1,0 @@
-layers:
-  hidden_size: 128
-  latent_size: 8
-input_size: 20032
