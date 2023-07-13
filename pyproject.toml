@@ -10,7 +10,7 @@ packages = [{include = "acoustic_anomaly_detection"}]
 python = "3.11.3"
 numpy = "^1.24.3"
 pandas = "^2.0.1"
-dvc = "^2.56.0"
+dvc = "^3.5.1"
 dvc-gs = "^2.22.1"
 dvclive = "^2.11.0"
 llvmlite = "0.40.1"

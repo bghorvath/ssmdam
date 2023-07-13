@@ -1,4 +1,5 @@
 [core]
-    remote = storage
-['remote "storage"']
-    url = gs://acoustic-anomaly-detection
+    autostage = true
+    remote = dvc
+['remote "dvc"']
+    url = gs://dvc1259/

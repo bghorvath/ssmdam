@@ -1,9 +1,11 @@
 misc:
   num_workers: 8
-  ckpt_path: models/best.ckpt
+  ckpt_dir: models
   log_dir: results
 
 data:
+  train_split: 0.8
+  fast_dev_run: False
   audio_dirs:
     - data/dev/fan
     - data/dev/pump
@@ -11,8 +13,6 @@ data:
     - data/dev/valve
     - data/dev/ToyCar
     - data/dev/ToyConveyor
-  train_split: 0.8
-  fast_dev_run: False
 
 transform:
   type: mel_spectrogram
@@ -20,11 +20,11 @@ transform:
   # audio params
     sr: 16000
     duration: 10
-  # spectrogram params
+  # stft params
     n_fft: 1024
     hop_length: 512
-    # mel spectrogram params
-    n_mels: 64
+    # mel params
+    n_mels: 128
     # mfcc params
     n_mfcc: 40
 
@@ -37,5 +37,5 @@ model:
 train:
   seed: 42
   epochs: 10
-  batch_size: 32
+  batch_size: 512
   lr: 0.001
