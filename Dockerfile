@@ -23,4 +23,4 @@ RUN pyenv exec pip install --no-cache-dir poetry
 
 RUN poetry install --with gpu
 
-CMD ["dvc", "repro"]
+CMD ["poetry", "run", "dvc", "repro"]
