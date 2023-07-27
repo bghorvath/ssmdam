@@ -14,7 +14,7 @@ from model import get_model
 params = yaml.safe_load(open("params.yaml"))
 
 
-def evaluate():
+def test():
     num_workers = params["misc"]["num_workers"]
     log_dir = params["misc"]["log_dir"]
     audio_dirs = params["data"]["audio_dirs"]
@@ -29,11 +29,18 @@ def evaluate():
         #         live._exp_name = exp_name
         for audio_dir in tqdm(audio_dirs):
             machine_type = audio_dir.split("/")[-1]
-            audio_dir = os.path.join(audio_dir, "test")
-
-            machine_ids = {p.split("_")[2] for p in os.listdir(audio_dir)}
 
             ckpt_path = os.path.join(ckpt_dir, machine_type + ".ckpt")
+            if not os.path.exists(ckpt_path):
+                print(f"Model for {machine_type} not found. Skipping...")
+                continue
+
+            audio_dir = os.path.join(audio_dir, "test")
+            if not os.path.exists(audio_dir):
+                print(f"Test data for {machine_type} not found. Skipping...")
+                continue
+
+            machine_ids = {p.split("_")[2] for p in os.listdir(audio_dir)}
 
             for machine_id in machine_ids:
                 file_list = [
@@ -41,6 +48,10 @@ def evaluate():
                     for file in os.listdir(audio_dir)
                     if file.split("_")[2] == machine_id
                 ]
+
+                if len(file_list) == 0:
+                    print(f"No data for {machine_type} found. Skipping...")
+                    continue
 
                 dataset = AudioDataset(
                     file_list=file_list,
@@ -64,6 +75,7 @@ def evaluate():
                 logger = DVCLiveLogger(
                     experiment=live,
                     save_dvc_exp=False,
+                    resume=True,
                 )
 
                 trainer = Trainer(logger=logger)
@@ -76,4 +88,4 @@ def evaluate():
 
 
 if __name__ == "__main__":
-    evaluate()
+    test()

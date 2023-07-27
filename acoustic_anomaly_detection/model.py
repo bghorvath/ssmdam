@@ -3,6 +3,7 @@ import torch
 from torch import nn
 import lightning.pytorch as pl
 from torcheval.metrics.functional import binary_auroc, binary_auprc
+from transformers import AutoProcessor, ASTModel
 
 params = yaml.safe_load(open("params.yaml"))
 
@@ -32,15 +33,22 @@ class Model(pl.LightningModule):
         x = nn.Flatten(0, 1)(x)
         x_hat = self(x)
         loss = nn.functional.mse_loss(x_hat, x)
+        self.loss_list.append(loss)
         self.log(
             f"{self.model_name}_train_loss",
             loss,
             on_step=True,
-            on_epoch=False,
+            on_epoch=True,
             prog_bar=True,
             logger=True,
         )
         return loss
+
+    def on_train_epoch_start(self) -> None:
+        self.loss_list = []
+
+    def on_train_epoch_end(self) -> None:
+        pass
 
     def validation_step(
         self, batch: tuple[torch.Tensor, torch.Tensor], batch_idx: int
@@ -49,11 +57,12 @@ class Model(pl.LightningModule):
         x = nn.Flatten(0, 1)(x)
         x_hat = self(x)
         loss = nn.functional.mse_loss(x_hat, x)
+        self.loss_list.append(loss)
         self.log(
             f"{self.model_name}_val_loss",
             loss,
             on_step=True,
-            on_epoch=False,
+            on_epoch=True,
             prog_bar=True,
             logger=True,
         )
@@ -158,4 +167,47 @@ class BaselineAE(Model):
         z = nn.Flatten(-2, -1)(x)
         z = self.encoder(z)
         z = self.decoder(z)
+        return z.view(x.shape)
+
+
+class ASTAE(Model):
+    """
+    Audio Spectrogram Transformer AutoEncoder
+    Source: https://huggingface.co/transformers/model_doc/audio-spectrogram-transformer.html
+    """
+
+    def __init__(self, model_name: str, input_size: int, layers: dict):
+        super().__init__(model_name)
+        self.input_size = input_size
+        self.hidden_size = layers["hidden_size"]
+        self.latent_size = layers["latent_size"]
+        self.save_hyperparameters()
+        self.processor = AutoProcessor.from_pretrained(
+            "MIT/ast-finetuned-audioset-10-10-0.4593"
+        )
+        self.encoder = ASTModel.from_pretrained(
+            "MIT/ast-finetuned-audioset-10-10-0.4593"
+        )
+        self.decoder = nn.Sequential(
+            nn.Linear(self.latent_size, self.hidden_size),
+            nn.BatchNorm1d(self.hidden_size, momentum=0.01, eps=1e-03),
+            nn.ReLU(),
+            nn.Linear(self.hidden_size, self.hidden_size),
+            nn.BatchNorm1d(self.hidden_size, momentum=0.01, eps=1e-03),
+            nn.ReLU(),
+            nn.Linear(self.hidden_size, self.hidden_size),
+            nn.BatchNorm1d(self.hidden_size, momentum=0.01, eps=1e-03),
+            nn.ReLU(),
+            nn.Linear(self.hidden_size, self.hidden_size),
+            nn.BatchNorm1d(self.hidden_size, momentum=0.01, eps=1e-03),
+            nn.ReLU(),
+            nn.Linear(self.hidden_size, input_size),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        z = nn.Flatten(-2, -1)(x)
+        with torch.no_grad():
+            z = self.processor(x, return_tensors="pt", padding=True)
+            z = self.encoder(z)
+        z = self.decoder(z)  # TODO shapes don't match for now
         return z.view(x.shape)

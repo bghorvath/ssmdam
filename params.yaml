@@ -6,16 +6,12 @@ misc:
 data:
   train_split: 0.8
   fast_dev_run: False
-  audio_dirs:
-    - data/dev/fan
-    - data/dev/pump
-    - data/dev/slider
-    - data/dev/valve
-    - data/dev/ToyCar
-    - data/dev/ToyConveyor
+  data_sources:
+    - dcase2023t2
 
 transform:
   type: mel_spectrogram
+  segment: False
   params:
   # audio params
     sr: 16000
@@ -37,5 +33,5 @@ model:
 train:
   seed: 42
   epochs: 100
-  batch_size: 32
+  batch_size: 16
   lr: 0.001

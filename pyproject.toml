@@ -16,6 +16,7 @@ dvclive = "^2.11.0"
 llvmlite = "0.40.1"
 lightning = "2.0.2"
 torcheval = "0.0.6"
+transformers = "^4.31.0"
 
 [tool.poetry.group.gpu.dependencies]
 torch = { version = "2.0.1", source = "torchcuda" }
