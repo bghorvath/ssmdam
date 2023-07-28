@@ -1,0 +1,115 @@
+schema: '2.0'
+stages:
+  train:
+    cmd: python acoustic_anomaly_detection/train.py
+    deps:
+    - path: acoustic_anomaly_detection/dataset.py
+      hash: md5
+      md5: 337a7b98b9082c5c71743c6c8cbcf881
+      size: 3616
+    - path: acoustic_anomaly_detection/model.py
+      hash: md5
+      md5: 30e62c3a27631724f5308c3583fdb6fd
+      size: 5535
+    - path: acoustic_anomaly_detection/train.py
+      hash: md5
+      md5: df5905cb5b5213289cfe298a4ebcfa7f
+      size: 3431
+    - path: data/dev/
+      hash: md5
+      md5: f60fd37dced9d23fb5d86529df53d756.dir
+      size: 10123891428
+      nfiles: 30987
+    params:
+      params.yaml:
+        data:
+          train_split: 0.8
+          fast_dev_run: false
+          audio_dirs:
+          - data/dev/fan
+          - data/dev/pump
+          - data/dev/slider
+          - data/dev/valve
+          - data/dev/ToyCar
+          - data/dev/ToyConveyor
+        model:
+          type: baseline_ae
+          layers:
+            hidden_size: 128
+            latent_size: 8
+        train:
+          seed: 42
+          epochs: 100
+          batch_size: 16
+          lr: 0.001
+        transform:
+          type: mel_spectrogram
+          params:
+            sr: 16000
+            duration: 10
+            n_fft: 1024
+            hop_length: 512
+            n_mels: 128
+            n_mfcc: 40
+    outs:
+    - path: models/
+      hash: md5
+      md5: b521e5f0c64c893f0a32f990cf202832.dir
+      size: 19657162
+      nfiles: 6
+  evaluate:
+    cmd: python acoustic_anomaly_detection/evaluate.py
+    deps:
+    - path: acoustic_anomaly_detection/evaluate.py
+      hash: md5
+      md5: ec7c24423b82eea1c94939e8d432ef35
+      size: 2408
+    - path: models/
+      hash: md5
+      md5: b521e5f0c64c893f0a32f990cf202832.dir
+      size: 19657162
+      nfiles: 6
+    params:
+      params.yaml:
+        model:
+          type: baseline_ae
+          layers:
+            hidden_size: 128
+            latent_size: 8
+    outs:
+    - path: results/
+      hash: md5
+      md5: 6691987f06f367ff57c3ad7b853cb519.dir
+      size: 106233
+      nfiles: 51
+  prepare:
+    cmd: python acoustic_anomaly_detection/prepare.py
+    deps:
+    - path: data/raw/
+      hash: md5
+      md5: f76adf1e88908cbb9400832a43664b53.dir
+      size: 2842644976
+      nfiles: 8407
+    params:
+      params.yaml:
+        data:
+          train_split: 0.8
+          fast_dev_run: false
+          data_sources:
+          - dcase2023t2
+        transform:
+          type: mel_spectrogram
+          segment: false
+          params:
+            sr: 16000
+            duration: 10
+            n_fft: 1024
+            hop_length: 512
+            n_mels: 128
+            n_mfcc: 40
+    outs:
+    - path: data/prepared/
+      hash: md5
+      md5: 18728b8fd2cf102371d87e0f6a06fbd8.dir
+      size: 6653137641
+      nfiles: 8400

@@ -24,21 +24,21 @@ class Preparator:
         self.data_sources = params["data"]["data_sources"]
         self.segment = params["transform"]["segment"]
 
-        sr = params["transform"]["params"]["sr"]
-        duration = params["transform"]["params"]["duration"]
+        self.sr = params["transform"]["params"]["sr"]
+        self.duration = params["transform"]["params"]["duration"]
 
-        self.length = sr * duration
+        self.length = self.sr * self.duration
 
-    def cut(self, signal: torch.Tensor, length: int) -> torch.Tensor:
-        if signal.shape[1] > length:
-            signal = signal[:, :length]
-        elif signal.shape[1] < length:
-            signal = torch.nn.functional.pad(signal, (0, length - signal.shape[1]))
+    def cut(self, signal: torch.Tensor) -> torch.Tensor:
+        if signal.shape[1] > self.length:
+            signal = signal[:, : self.length]
+        elif signal.shape[1] < self.length:
+            signal = torch.nn.functional.pad(signal, (0, self.length - signal.shape[1]))
         return signal
 
     def resample(self, signal: torch.Tensor, sr: int) -> torch.Tensor:
-        if sr != sr:
-            resampler = torchaudio.transforms.Resample(sr, sr)
+        if sr != self.sr:
+            resampler = torchaudio.transforms.Resample(sr, self.sr)
             signal = resampler(signal)
         return signal
 
@@ -78,14 +78,13 @@ class Preparator:
                 for file in files:
                     if file.endswith(".wav"):
                         file_path = os.path.join(root, file)
-                        relative_dir = os.path.relpath(file_path, raw_dir)
-                        prepared_dir = os.path.join(
-                            "data", "prepared", data_source, relative_dir
-                        )
-                        os.makedirs(prepared_dir, exist_ok=True)
+                        relative_file_path = os.path.relpath(file_path, raw_dir)
                         prepared_file_path = os.path.join(
-                            prepared_dir, file.replace(".wav", ".pt")
+                            "data", "prepared", "dcase2023t2", relative_file_path
                         )
+                        prepared_file_path = prepared_file_path.replace(".wav", ".pt")
+                        prepared_dir = os.path.dirname(prepared_file_path)
+                        os.makedirs(prepared_dir, exist_ok=True)
                         self.transform(file_path, prepared_file_path)
 
 
