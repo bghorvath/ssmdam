@@ -8,8 +8,9 @@ from lightning import Trainer
 from dvclive import Live
 from dvclive.lightning import DVCLiveLogger
 
-from dataset import AudioDataset
-from model import get_model
+from acoustic_anomaly_detection.dataset import AudioDataset
+from acoustic_anomaly_detection.model import get_model
+from acoustic_anomaly_detection.utils import get_groupings
 
 params = yaml.safe_load(open("params.yaml"))
 
@@ -28,7 +29,7 @@ def test():
     ) as live:
         #         live._exp_name = exp_name
         for i, data_source in enumerate(tqdm(data_sources)):
-            print(f"Training ({i+1}/{len(data_sources)} data source: {data_source})")
+            print(f"Testing ({i+1}/{len(data_sources)} data source: {data_source})")
             audio_dirs_path = os.path.join("data", "prepared", data_source, "dev")
             audio_dirs = [
                 os.path.join(audio_dirs_path, dir)
@@ -48,13 +49,13 @@ def test():
                     print(f"Test data for {machine_type} not found. Skipping...")
                     continue
 
-                machine_ids = {p.split("_")[2] for p in os.listdir(audio_dir)}
+                sections, domains = get_groupings(audio_dir)
 
-                for machine_id in machine_ids:
+                for domain in domains:
                     file_list = [
                         os.path.join(audio_dir, file)
                         for file in os.listdir(audio_dir)
-                        if file.split("_")[2] == machine_id
+                        if file.split("_")[2] == domain
                     ]
 
                     if len(file_list) == 0:
@@ -78,7 +79,7 @@ def test():
 
                     model = get_model(model_name="", input_size=input_size)
                     model = model.load_from_checkpoint(ckpt_path)
-                    model.model_name = f"{machine_type}_{machine_id}"  # type: ignore
+                    model.model_name = f"{machine_type}_{domain}"
 
                     trainer = Trainer(logger=DVCLiveLogger(experiment=live))
 

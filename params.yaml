@@ -10,7 +10,7 @@ data:
     - dcase2023t2
 
 transform:
-  type: mel_spectrogram
+  type: ast
   segment: False
   params:
   # audio params
@@ -25,7 +25,7 @@ transform:
     n_mfcc: 40
 
 model:
-  type: baseline_ae
+  type: ast_ae
   layers:
     encoder:
       - 128

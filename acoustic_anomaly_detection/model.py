@@ -12,6 +12,7 @@ def get_model(model_name: str, input_size: int) -> pl.LightningModule:
     model = {
         "simple_ae": SimpleAE,
         "baseline_ae": BaselineAE,
+        "ast_ae": ASTAE,
     }[params["model"]["type"]]
     return model(model_name=model_name, input_size=input_size)
 
@@ -67,7 +68,7 @@ class Model(pl.LightningModule):
         error_score = torch.mean(torch.square(x_hat - x))
         self.error_score.append(error_score.item())
         y = 1 if attributes["label"] == "anomaly" else 0
-        self.y.append(y.item())
+        self.y.append(y)
 
     def on_test_epoch_start(self) -> None:
         self.error_score = []

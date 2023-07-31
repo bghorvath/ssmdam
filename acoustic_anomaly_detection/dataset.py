@@ -5,6 +5,8 @@ import torch
 from torch.utils.data import Dataset
 import torchaudio
 
+from acoustic_anomaly_detection.utils import get_attributes
+
 params = yaml.safe_load(open("params.yaml"))
 
 
@@ -26,10 +28,6 @@ class AudioDataset(Dataset):
 
     def __getitem__(self, idx) -> tuple[torch.Tensor, dict[str, str]]:
         file_path = self.file_list[idx]
-        file_details = os.path.basename(p=file_path).split("_")
-        attributes = {k: v for k, v in zip(file_details[6::2], file_details[7::2])}
-        attributes["section"] = file_details[1]
-        attributes["domain"] = file_details[2]
-        attributes["label"] = file_details[4]
+        attributes = get_attributes(os.path.basename(file_path))
         signal = torch.load(file_path)
         return signal, attributes

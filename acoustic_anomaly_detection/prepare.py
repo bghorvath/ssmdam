@@ -8,6 +8,22 @@ from transformers import AutoProcessor
 params = yaml.safe_load(open("params.yaml"))
 
 
+class ASTProcessor(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.ast = AutoProcessor.from_pretrained(
+            "MIT/ast-finetuned-audioset-10-10-0.4593"
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.ast(
+            x.squeeze(0),
+            sampling_rate=params["transform"]["params"]["sr"],
+            return_tensors="pt",
+        )
+        return x["input_values"]
+
+
 class Preparator:
     """
     Class to prepare data for training.
@@ -24,15 +40,14 @@ class Preparator:
             "mel_spectrogram": MelSpectrogram,
             "mfcc": MFCC,
             "spectrogram": Spectrogram,
-            "ast": AutoProcessor.from_pretrained(
-                "MIT/ast-finetuned-audioset-10-10-0.4593"
-            ),
+            "ast": ASTProcessor,
         }[params["transform"]["type"]]
         transform_params = {
             k: v
             for k, v in params["transform"]["params"].items()
             if k in self.transform_func.__init__.__code__.co_varnames
         }
+        # if params["transform"]["type"] != "ast":
         self.transform_func = self.transform_func(**transform_params)
 
         self.data_sources = params["data"]["data_sources"]
@@ -81,9 +96,7 @@ class Preparator:
         else:
             signal = self.cut(signal)
         signal = self.transform_func(signal)
-        if params["transform"]["type"] == "ast":
-            signal = signal["input_values"]
-        else:
+        if params["transform"]["type"] != "ast":
             signal = AmplitudeToDB(stype="power")(signal)
         signal = self.slide_window(signal)
         torch.save(signal, prepared_file_path)

@@ -9,8 +9,8 @@ from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 from dvclive import Live
 from dvclive.lightning import DVCLiveLogger
 
-from dataset import AudioDataset
-from model import get_model
+from acoustic_anomaly_detection.dataset import AudioDataset
+from acoustic_anomaly_detection.model import get_model
 
 params = yaml.safe_load(open("params.yaml"))
 
