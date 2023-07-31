@@ -17,7 +17,7 @@ params = yaml.safe_load(open("params.yaml"))
 def test():
     num_workers = params["misc"]["num_workers"]
     log_dir = params["misc"]["log_dir"]
-    audio_dirs = params["data"]["audio_dirs"]
+    data_sources = params["data"]["data_sources"]
     ckpt_dir = params["misc"]["ckpt_dir"]
     fast_dev_run = params["data"]["fast_dev_run"]
 
@@ -27,64 +27,66 @@ def test():
         # save_dvc_exp=True,
     ) as live:
         #         live._exp_name = exp_name
-        for audio_dir in tqdm(audio_dirs):
-            machine_type = audio_dir.split("/")[-1]
+        for i, data_source in enumerate(tqdm(data_sources)):
+            print(f"Training ({i+1}/{len(data_sources)} data source: {data_source})")
+            audio_dirs_path = os.path.join("data", "prepared", data_source, "dev")
+            audio_dirs = [
+                os.path.join(audio_dirs_path, dir)
+                for dir in os.listdir(audio_dirs_path)
+            ]
+            for j, audio_dir in enumerate(tqdm(audio_dirs)):
+                machine_type = audio_dir.split("/")[-1]
+                print(f"Testing ({j+1}/{len(audio_dirs)} machine type: {machine_type})")
+                audio_dir = os.path.join(audio_dir, "test")
 
-            ckpt_path = os.path.join(ckpt_dir, machine_type + ".ckpt")
-            if not os.path.exists(ckpt_path):
-                print(f"Model for {machine_type} not found. Skipping...")
-                continue
-
-            audio_dir = os.path.join(audio_dir, "test")
-            if not os.path.exists(audio_dir):
-                print(f"Test data for {machine_type} not found. Skipping...")
-                continue
-
-            machine_ids = {p.split("_")[2] for p in os.listdir(audio_dir)}
-
-            for machine_id in machine_ids:
-                file_list = [
-                    os.path.join(audio_dir, file)
-                    for file in os.listdir(audio_dir)
-                    if file.split("_")[2] == machine_id
-                ]
-
-                if len(file_list) == 0:
-                    print(f"No data for {machine_type} found. Skipping...")
+                ckpt_path = os.path.join(ckpt_dir, machine_type + ".ckpt")
+                if not os.path.exists(ckpt_path):
+                    print(f"Model for {machine_type} not found. Skipping...")
                     continue
 
-                dataset = AudioDataset(
-                    file_list=file_list,
-                    fast_dev_run=fast_dev_run,
-                )
+                if not os.path.exists(audio_dir):
+                    print(f"Test data for {machine_type} not found. Skipping...")
+                    continue
 
-                test_loader = DataLoader(
-                    dataset,
-                    batch_size=1,
-                    num_workers=num_workers,
-                    shuffle=False,
-                    drop_last=True,
-                )
+                machine_ids = {p.split("_")[2] for p in os.listdir(audio_dir)}
 
-                input_size = dataset[0][0].shape[1:].numel()
+                for machine_id in machine_ids:
+                    file_list = [
+                        os.path.join(audio_dir, file)
+                        for file in os.listdir(audio_dir)
+                        if file.split("_")[2] == machine_id
+                    ]
 
-                model = get_model(model_name="", input_size=input_size)
-                model = model.load_from_checkpoint(ckpt_path)
-                model.model_name = f"{machine_type}_{machine_id}"  # type: ignore
+                    if len(file_list) == 0:
+                        print(f"No data for {machine_type} found. Skipping...")
+                        continue
 
-                logger = DVCLiveLogger(
-                    experiment=live,
-                    save_dvc_exp=False,
-                    resume=True,
-                )
+                    dataset = AudioDataset(
+                        file_list=file_list,
+                        fast_dev_run=fast_dev_run,
+                    )
 
-                trainer = Trainer(logger=logger)
+                    test_loader = DataLoader(
+                        dataset,
+                        batch_size=1,
+                        num_workers=num_workers,
+                        shuffle=False,
+                        drop_last=True,
+                    )
 
-                trainer.test(
-                    model=model,  # type: ignore
-                    dataloaders=test_loader,
-                    # ckpt_path=ckpt_path,
-                )
+                    input_size = dataset[0][0].shape[1:].numel()
+
+                    model = get_model(model_name="", input_size=input_size)
+                    model = model.load_from_checkpoint(ckpt_path)
+                    model.model_name = f"{machine_type}_{machine_id}"  # type: ignore
+
+                    trainer = Trainer(logger=DVCLiveLogger(experiment=live))
+
+                    trainer.test(
+                        model=model,  # type: ignore
+                        dataloaders=test_loader,
+                        # ckpt_path=ckpt_path,
+                    )
 
 
 if __name__ == "__main__":

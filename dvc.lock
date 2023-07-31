@@ -79,9 +79,9 @@ stages:
     deps:
     - path: data/raw/
       hash: md5
-      md5: f7daf6215c792c4b44a0ed1e09e3983e.dir
-      size: 2842645105
-      nfiles: 8409
+      md5: db996631a3416fdbcf98de86e5495a0f.dir
+      size: 5800752391
+      nfiles: 20816
     params:
       params.yaml:
         data:
@@ -102,9 +102,9 @@ stages:
     outs:
     - path: data/prepared/
       hash: md5
-      md5: 8745479ece61c880457b861514ff5ac9.dir
-      size: 6653137655
-      nfiles: 8401
+      md5: d9081958c8c7eaa3002d8e7f53b6dff2.dir
+      size: 13306012550
+      nfiles: 16800
   test:
     cmd: python acoustic_anomaly_detection/test.py
     deps:

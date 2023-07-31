@@ -31,6 +31,5 @@ class AudioDataset(Dataset):
         attributes["section"] = file_details[1]
         attributes["domain"] = file_details[2]
         attributes["label"] = file_details[4]
-        signal, sr = torchaudio.load(audio_path)  # type: ignore
-        signal = self.transform(signal, sr)
+        signal = torch.load(file_path)
         return signal, attributes

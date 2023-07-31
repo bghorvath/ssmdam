@@ -39,10 +39,9 @@ def train():
                 print(
                     f"Training ({j+1}/{len(audio_dirs)} machine type: {machine_type})"
                 )
-                train_audio_dir = os.path.join(audio_dir, "train")
+                audio_dir = os.path.join(audio_dir, "train")
                 file_list = [
-                    os.path.join(audio_dir, file)
-                    for file in os.listdir(train_audio_dir)
+                    os.path.join(audio_dir, file) for file in os.listdir(audio_dir)
                 ]
 
                 dataset = AudioDataset(

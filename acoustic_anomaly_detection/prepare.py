@@ -3,16 +3,30 @@ import yaml
 import torch
 import torchaudio
 from torchaudio.transforms import MelSpectrogram, MFCC, Spectrogram, AmplitudeToDB
+from transformers import AutoProcessor
 
 params = yaml.safe_load(open("params.yaml"))
 
 
 class Preparator:
+    """
+    Class to prepare data for training.
+
+    Possible transforms:
+    - MelSpectrogram
+    - MFCC
+    - Spectrogram
+    - Huggingface ASTFeatureExtractor
+    """
+
     def __init__(self):
         self.transform_func = {
             "mel_spectrogram": MelSpectrogram,
             "mfcc": MFCC,
             "spectrogram": Spectrogram,
+            "ast": AutoProcessor.from_pretrained(
+                "MIT/ast-finetuned-audioset-10-10-0.4593"
+            ),
         }[params["transform"]["type"]]
         transform_params = {
             k: v
@@ -67,7 +81,10 @@ class Preparator:
         else:
             signal = self.cut(signal)
         signal = self.transform_func(signal)
-        signal = AmplitudeToDB(stype="power")(signal)
+        if params["transform"]["type"] == "ast":
+            signal = signal["input_values"]
+        else:
+            signal = AmplitudeToDB(stype="power")(signal)
         signal = self.slide_window(signal)
         torch.save(signal, prepared_file_path)
 

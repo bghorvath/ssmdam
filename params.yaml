@@ -27,8 +27,18 @@ transform:
 model:
   type: baseline_ae
   layers:
-    hidden_size: 128
-    latent_size: 8
+    encoder:
+      - 128
+      - 128
+      - 128
+      - 128
+      - 8
+    decoder:
+      - 8
+      - 128
+      - 128
+      - 128
+      - 128
 
 train:
   seed: 42
