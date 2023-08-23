@@ -6,10 +6,15 @@ params = yaml.safe_load(open("params.yaml"))
 
 
 def get_attributes(file_name: str):
+    """
+    Extracts attributes from a file name.
+    Expected format: section_{section}_{domain}_{split}_{label}_{attribute1}_{value1}_{attribute2}_{value2}...
+    """
     file_details = file_name.split("_")
     attributes = {k: v for k, v in zip(file_details[6::2], file_details[7::2])}
     attributes["section"] = file_details[1]
     attributes["domain"] = file_details[2]
+    attributes["split"] = file_details[3]
     attributes["label"] = file_details[4]
     return attributes
 
@@ -27,6 +32,11 @@ def get_groupings(audio_dir: str):
 
 
 def slide_window(signal: torch.Tensor) -> torch.Tensor:
+    """
+    Splits a tensor into windows of a specified size and stride.
+    Expected shape: (batch_size, length, feature_size)
+    Returns a tensor of shape (batch_size, num_windows, window_size, feature_size)
+    """
     window_size = params["transform"]["params"]["window_size"]
     stride = params["transform"]["params"]["stride"]
     batch_size, length, feature_size = signal.shape
@@ -39,6 +49,11 @@ def slide_window(signal: torch.Tensor) -> torch.Tensor:
 
 
 def reverse_slide_window(windowed_tensor: torch.Tensor) -> torch.Tensor:
+    """
+    Reconstructs the original tensor from a windowed tensor.
+    Expected shape: (batch_size, num_windows, window_size, feature_size)
+    Returns a tensor of shape (batch_size, length, feature_size)
+    """
     batch_size = params["train"]["batch_size"]
     num_windows = windowed_tensor.shape[0] // batch_size
     window_size = params["transform"]["params"]["window_size"]

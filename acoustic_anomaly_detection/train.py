@@ -5,7 +5,7 @@ import torch
 from torch.utils.data import random_split
 from torch.utils.data import DataLoader
 from lightning import Trainer
-from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
+from lightning.pytorch.callbacks import ModelCheckpoint
 from dvclive import Live
 from dvclive.lightning import DVCLiveLogger
 

@@ -3,7 +3,7 @@ import torch
 from torch import nn
 import lightning.pytorch as pl
 from torcheval.metrics.functional import binary_auroc, binary_auprc
-from transformers import AutoProcessor, ASTModel
+from transformers import ASTModel
 
 from acoustic_anomaly_detection.utils import slide_window, reverse_slide_window
 

@@ -8,7 +8,7 @@ import torchaudio
 from torchaudio.transforms import MelSpectrogram, MFCC, Spectrogram, AmplitudeToDB
 from transformers import AutoProcessor
 
-from acoustic_anomaly_detection.utils import get_attributes, slide_window
+from acoustic_anomaly_detection.utils import get_attributes
 
 params = yaml.safe_load(open("params.yaml"))
 
