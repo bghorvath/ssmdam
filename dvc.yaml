@@ -1,14 +1,4 @@
 stages:
-  prepare:
-    cmd: python acoustic_anomaly_detection/prepare.py
-    params:
-    - data
-    - transform
-    deps:
-    - data/raw/
-    outs:
-    - data/prepared/
-
   train:
     cmd: python acoustic_anomaly_detection/train.py
     params:
@@ -17,7 +7,7 @@ stages:
     - model
     - train
     deps:
-    - data/prepared/
+    - data/raw/
     - acoustic_anomaly_detection/dataset.py
     - acoustic_anomaly_detection/model.py
     outs:

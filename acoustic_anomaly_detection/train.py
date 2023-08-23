@@ -25,11 +25,12 @@ def train():
     ckpt_dir = params["misc"]["ckpt_dir"]
     fast_dev_run = params["data"]["fast_dev_run"]
     train_split = params["data"]["train_split"]
+    window_size = params["transform"]["params"]["window_size"]
 
     with Live(dir=log_dir, save_dvc_exp=False) as live:
         for i, data_source in enumerate(tqdm(data_sources)):
             print(f"Training ({i+1}/{len(data_sources)} data source: {data_source})")
-            audio_dirs_path = os.path.join("data", "prepared", data_source, "dev")
+            audio_dirs_path = os.path.join("data", "raw", data_source, "dev")
             audio_dirs = [
                 os.path.join(audio_dirs_path, dir)
                 for dir in os.listdir(audio_dirs_path)
@@ -72,7 +73,7 @@ def train():
                     drop_last=True,
                 )
 
-                input_size = train_dataset[0][0].shape[1:].numel()
+                input_size = train_dataset[0][0].shape[1] * window_size
 
                 model = get_model(model_name=machine_type, input_size=input_size)
 

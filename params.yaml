@@ -16,6 +16,9 @@ transform:
   # audio params
     sr: 16000
     duration: 10
+  # sliding window params
+    window_size: 5
+    stride: 1
   # stft params
     n_fft: 1024
     hop_length: 512

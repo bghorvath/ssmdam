@@ -5,6 +5,8 @@ import lightning.pytorch as pl
 from torcheval.metrics.functional import binary_auroc, binary_auprc
 from transformers import AutoProcessor, ASTModel
 
+from acoustic_anomaly_detection.utils import slide_window, reverse_slide_window
+
 params = yaml.safe_load(open("params.yaml"))
 
 
@@ -29,7 +31,6 @@ class Model(pl.LightningModule):
         self, batch: tuple[torch.Tensor, dict[str, str]], batch_idx: int
     ) -> torch.Tensor:
         x, _ = batch
-        x = nn.Flatten(0, 1)(x)
         x_hat = self(x)
         loss = nn.functional.mse_loss(x_hat, x)
         self.log(
@@ -46,7 +47,6 @@ class Model(pl.LightningModule):
         self, batch: tuple[torch.Tensor, dict[str, str]], batch_idx: int
     ) -> torch.Tensor:
         x, _ = batch
-        x = nn.Flatten(0, 1)(x)
         x_hat = self(x)
         loss = nn.functional.mse_loss(x_hat, x)
         self.log(
@@ -63,7 +63,6 @@ class Model(pl.LightningModule):
         self, batch: tuple[torch.Tensor, dict[str, str]], batch_idx: int
     ) -> None:
         x, attributes = batch
-        x = nn.Flatten(0, 1)(x)
         x_hat = self(x)
         error_score = torch.mean(torch.square(x_hat - x))
         self.error_score.append(error_score.item())
@@ -104,9 +103,11 @@ class SimpleAE(Model):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        z = nn.Flatten(1, 2)(x)
+        z = slide_window(x)
+        z = nn.Flatten(-2, -1)(z)
         z = self.encoder(z)
         z = self.decoder(z)
+        z = reverse_slide_window(z)
         return z.view(x.shape)
 
 
@@ -118,7 +119,6 @@ class BaselineAE(Model):
 
     def __init__(self, model_name: str, input_size: int) -> None:
         super().__init__(model_name)
-        self.input_size = input_size
         self.encoder_layers = params["model"]["layers"]["encoder"]
         self.decoder_layers = params["model"]["layers"]["decoder"]
         self.save_hyperparameters()
@@ -156,10 +156,17 @@ class BaselineAE(Model):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        z = nn.Flatten(-2, -1)(x)
+        # [batch_size, 313, 128]
+        z = slide_window(x)
+        # [batch_size, 309, 5, 128]
+        z = nn.Flatten(0, 1)(z)
+        # [batch_size * 309, 5, 128]
+        z = nn.Flatten(-2, -1)(z)
+        # [batch_size * 309, 5 * 128]
         z = self.encoder(z)
         z = self.decoder(z)
-        return z.view(x.shape)
+        z = reverse_slide_window(z)
+        return z
 
 
 class ASTAE(Model):
@@ -170,17 +177,13 @@ class ASTAE(Model):
 
     def __init__(self, model_name: str, input_size: int):
         super().__init__(model_name)
-        self.input_size = input_size
         self.decoder_layers = params["model"]["layers"]["decoder"]
         self.save_hyperparameters()
-        self.processor = AutoProcessor.from_pretrained(
-            "MIT/ast-finetuned-audioset-10-10-0.4593"
-        )
         self.encoder = ASTModel.from_pretrained(
             "MIT/ast-finetuned-audioset-10-10-0.4593"
         )
         self.decoder = nn.Sequential(
-            nn.Linear(self.decoder_layers[0], self.decoder_layers[1]),
+            nn.Linear(3840, self.decoder_layers[1]),
             nn.BatchNorm1d(self.decoder_layers[1], momentum=0.01, eps=1e-03),
             nn.ReLU(),
             nn.Linear(self.decoder_layers[1], self.decoder_layers[2]),
@@ -196,9 +199,11 @@ class ASTAE(Model):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        z = nn.Flatten(-2, -1)(x)
         with torch.no_grad():
-            z = self.processor(x, return_tensors="pt", padding=True)
-            z = self.encoder(z)
-        z = self.decoder(z)  # TODO shapes don't match for now
+            z = self.encoder(x).last_hidden_state
+        z = slide_window(z)
+        z = nn.Flatten(0, 1)(z)
+        z = nn.Flatten(-2, -1)(z)
+        z = self.decoder(z)
+        z = reverse_slide_window(z)
         return z.view(x.shape)

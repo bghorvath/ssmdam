@@ -30,7 +30,7 @@ def test():
         #         live._exp_name = exp_name
         for i, data_source in enumerate(tqdm(data_sources)):
             print(f"Testing ({i+1}/{len(data_sources)} data source: {data_source})")
-            audio_dirs_path = os.path.join("data", "prepared", data_source, "dev")
+            audio_dirs_path = os.path.join("data", "raw", data_source, "dev")
             audio_dirs = [
                 os.path.join(audio_dirs_path, dir)
                 for dir in os.listdir(audio_dirs_path)
