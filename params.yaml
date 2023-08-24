@@ -28,7 +28,7 @@ transform:
     n_mfcc: 40
 
 model:
-  type: ast_ae
+  type: baseline_ae
   layers:
     encoder:
       - 128

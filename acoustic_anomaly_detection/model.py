@@ -14,15 +14,21 @@ def get_model(model_name: str, input_size: int) -> pl.LightningModule:
     model = {
         "simple_ae": SimpleAE,
         "baseline_ae": BaselineAE,
-        "ast_ae": ASTAE,
     }[params["model"]["type"]]
     return model(model_name=model_name, input_size=input_size)
 
 
 class Model(pl.LightningModule):
-    def __init__(self, model_name: str):
+    def __init__(self, model_name: str, input_size: int):
         super().__init__()
         self.model_name = model_name
+        if params["transform"]["type"] == "ast":
+            self.transformer = ASTModel.from_pretrained(
+                "MIT/ast-finetuned-audioset-10-10-0.4593"
+            )
+            self.input_size = 3840
+        else:
+            self.input_size = input_size
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         raise NotImplementedError
@@ -31,6 +37,9 @@ class Model(pl.LightningModule):
         self, batch: tuple[torch.Tensor, dict[str, str]], batch_idx: int
     ) -> torch.Tensor:
         x, _ = batch
+        if params["transform"]["type"] == "ast":
+            with torch.no_grad():
+                x = self.transformer(x).last_hidden_state
         x_hat = self(x)
         loss = nn.functional.mse_loss(x_hat, x)
         self.log(
@@ -47,6 +56,9 @@ class Model(pl.LightningModule):
         self, batch: tuple[torch.Tensor, dict[str, str]], batch_idx: int
     ) -> torch.Tensor:
         x, _ = batch
+        if params["transform"]["type"] == "ast":
+            with torch.no_grad():
+                x = self.transformer(x).last_hidden_state
         x_hat = self(x)
         loss = nn.functional.mse_loss(x_hat, x)
         self.log(
@@ -63,6 +75,9 @@ class Model(pl.LightningModule):
         self, batch: tuple[torch.Tensor, dict[str, str]], batch_idx: int
     ) -> None:
         x, attributes = batch
+        if params["transform"]["type"] == "ast":
+            with torch.no_grad():
+                x = self.transformer(x).last_hidden_state
         x_hat = self(x)
         error_score = torch.mean(torch.square(x_hat - x))
         self.error_score.append(error_score.item())
@@ -87,19 +102,19 @@ class Model(pl.LightningModule):
 
 class SimpleAE(Model):
     def __init__(self, model_name: str, input_size: int) -> None:
-        super().__init__(model_name)
+        super().__init__(model_name, input_size)
         self.encoder_layers = params["model"]["layers"]["encoder"]
         self.decoder_layers = params["model"]["layers"]["decoder"]
         self.save_hyperparameters()
         self.encoder = nn.Sequential(
-            nn.Linear(input_size, self.encoder_layers[0]),
+            nn.Linear(self.input_size, self.encoder_layers[0]),
             nn.ReLU(),
             nn.Linear(self.encoder_layers[0], self.encoder_layers[1]),
         )
         self.decoder = nn.Sequential(
             nn.Linear(self.decoder_layers[0], self.decoder_layers[1]),
             nn.ReLU(),
-            nn.Linear(self.decoder_layers[1], input_size),
+            nn.Linear(self.decoder_layers[1], self.input_size),
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -118,12 +133,12 @@ class BaselineAE(Model):
     """
 
     def __init__(self, model_name: str, input_size: int) -> None:
-        super().__init__(model_name)
+        super().__init__(model_name, input_size)
         self.encoder_layers = params["model"]["layers"]["encoder"]
         self.decoder_layers = params["model"]["layers"]["decoder"]
         self.save_hyperparameters()
         self.encoder = nn.Sequential(
-            nn.Linear(input_size, self.encoder_layers[0]),
+            nn.Linear(self.input_size, self.encoder_layers[0]),
             nn.BatchNorm1d(self.encoder_layers[0], momentum=0.01, eps=1e-03),
             nn.ReLU(),
             nn.Linear(self.encoder_layers[0], self.encoder_layers[1]),
@@ -152,7 +167,7 @@ class BaselineAE(Model):
             nn.Linear(self.decoder_layers[3], self.decoder_layers[4]),
             nn.BatchNorm1d(self.decoder_layers[4], momentum=0.01, eps=1e-03),
             nn.ReLU(),
-            nn.Linear(self.decoder_layers[4], input_size),
+            nn.Linear(self.decoder_layers[4], self.input_size),
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -167,43 +182,3 @@ class BaselineAE(Model):
         z = self.decoder(z)
         z = reverse_slide_window(z)
         return z
-
-
-class ASTAE(Model):
-    """
-    Audio Spectrogram Transformer AutoEncoder
-    Source: https://huggingface.co/transformers/model_doc/audio-spectrogram-transformer.html
-    """
-
-    def __init__(self, model_name: str, input_size: int):
-        super().__init__(model_name)
-        self.decoder_layers = params["model"]["layers"]["decoder"]
-        self.save_hyperparameters()
-        self.encoder = ASTModel.from_pretrained(
-            "MIT/ast-finetuned-audioset-10-10-0.4593"
-        )
-        self.decoder = nn.Sequential(
-            nn.Linear(3840, self.decoder_layers[1]),
-            nn.BatchNorm1d(self.decoder_layers[1], momentum=0.01, eps=1e-03),
-            nn.ReLU(),
-            nn.Linear(self.decoder_layers[1], self.decoder_layers[2]),
-            nn.BatchNorm1d(self.decoder_layers[2], momentum=0.01, eps=1e-03),
-            nn.ReLU(),
-            nn.Linear(self.decoder_layers[2], self.decoder_layers[3]),
-            nn.BatchNorm1d(self.decoder_layers[3], momentum=0.01, eps=1e-03),
-            nn.ReLU(),
-            nn.Linear(self.decoder_layers[3], self.decoder_layers[4]),
-            nn.BatchNorm1d(self.decoder_layers[4], momentum=0.01, eps=1e-03),
-            nn.ReLU(),
-            nn.Linear(self.decoder_layers[4], input_size),
-        )
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        with torch.no_grad():
-            z = self.encoder(x).last_hidden_state
-        z = slide_window(z)
-        z = nn.Flatten(0, 1)(z)
-        z = nn.Flatten(-2, -1)(z)
-        z = self.decoder(z)
-        z = reverse_slide_window(z)
-        return z.view(x.shape)

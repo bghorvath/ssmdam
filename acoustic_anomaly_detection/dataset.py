@@ -2,7 +2,6 @@ import os
 import random
 import yaml
 import torch
-from torch import nn
 from torch.utils.data import Dataset
 import torchaudio
 from torchaudio.transforms import MelSpectrogram, MFCC, Spectrogram, AmplitudeToDB
@@ -14,6 +13,11 @@ params = yaml.safe_load(open("params.yaml"))
 
 
 class ASTProcessor(torch.nn.Module):
+    """
+    Audio Spectrogram Transformer AutoEncoder
+    Source: https://huggingface.co/transformers/model_doc/audio-spectrogram-transformer.html
+    """
+
     def __init__(self):
         super().__init__()
         self.ast = AutoProcessor.from_pretrained(
@@ -55,7 +59,6 @@ class AudioDataset(Dataset):
             for k, v in params["transform"]["params"].items()
             if k in self.transform_func.__init__.__code__.co_varnames
         }
-        # if params["transform"]["type"] != "ast":
         self.transform_func = self.transform_func(**transform_params)
 
         if fast_dev_run:
@@ -92,7 +95,7 @@ class AudioDataset(Dataset):
         else:
             signal = self.cut(signal)
         signal = self.transform_func(signal)
-        signal = nn.Flatten(0, 1)(signal)
+        signal = signal.squeeze(0)
         if self.transform_type == "ast":
             return signal
         signal = AmplitudeToDB(stype="power")(signal)
