@@ -22,13 +22,8 @@ class Model(pl.LightningModule):
     def __init__(self, model_name: str, input_size: int):
         super().__init__()
         self.model_name = model_name
-        if params["transform"]["type"] == "ast":
-            self.transformer = ASTModel.from_pretrained(
-                "MIT/ast-finetuned-audioset-10-10-0.4593"
-            )
-            self.input_size = 3840
-        else:
-            self.input_size = input_size
+        self.input_size = input_size
+        self.init_transformer()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         raise NotImplementedError
@@ -37,9 +32,7 @@ class Model(pl.LightningModule):
         self, batch: tuple[torch.Tensor, dict[str, str]], batch_idx: int
     ) -> torch.Tensor:
         x, _ = batch
-        if params["transform"]["type"] == "ast":
-            with torch.no_grad():
-                x = self.transformer(x).last_hidden_state
+        x = self.transform(x)
         x_hat = self(x)
         loss = nn.functional.mse_loss(x_hat, x)
         self.log(
@@ -56,9 +49,7 @@ class Model(pl.LightningModule):
         self, batch: tuple[torch.Tensor, dict[str, str]], batch_idx: int
     ) -> torch.Tensor:
         x, _ = batch
-        if params["transform"]["type"] == "ast":
-            with torch.no_grad():
-                x = self.transformer(x).last_hidden_state
+        x = self.transform(x)
         x_hat = self(x)
         loss = nn.functional.mse_loss(x_hat, x)
         self.log(
@@ -75,9 +66,7 @@ class Model(pl.LightningModule):
         self, batch: tuple[torch.Tensor, dict[str, str]], batch_idx: int
     ) -> None:
         x, attributes = batch
-        if params["transform"]["type"] == "ast":
-            with torch.no_grad():
-                x = self.transformer(x).last_hidden_state
+        x = self.transform(x)
         x_hat = self(x)
         error_score = torch.mean(torch.square(x_hat - x))
         self.error_score.append(error_score.item())
@@ -98,6 +87,19 @@ class Model(pl.LightningModule):
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
         return torch.optim.Adam(self.parameters(), lr=params["train"]["lr"])
+
+    def transform(self, x: torch.Tensor) -> torch.Tensor:
+        if params["transform"]["type"] == "ast":
+            with torch.no_grad():
+                return self.transformer(x).last_hidden_state
+        return x
+
+    def init_transformer(self) -> None:
+        if params["transform"]["type"] == "ast":
+            self.transformer = ASTModel.from_pretrained(
+                "MIT/ast-finetuned-audioset-10-10-0.4593"
+            )
+            self.input_size = 3840
 
 
 class SimpleAE(Model):
