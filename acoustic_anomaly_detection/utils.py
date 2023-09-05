@@ -31,7 +31,7 @@ def get_groupings(audio_dir: str):
     return sections, domains
 
 
-def slide_window(signal: torch.Tensor) -> torch.Tensor:
+def slice_signal(signal: torch.Tensor) -> torch.Tensor:
     """
     Splits a tensor into windows of a specified size and stride.
     Expected shape: (batch_size, length, feature_size)
@@ -48,29 +48,29 @@ def slide_window(signal: torch.Tensor) -> torch.Tensor:
     return torch.stack(windows, dim=1)
 
 
-def reverse_slide_window(windowed_tensor: torch.Tensor) -> torch.Tensor:
+def reconstruct_signal(sliced_tensor: torch.Tensor) -> torch.Tensor:
     """
     Reconstructs the original tensor from a windowed tensor.
     Expected shape: (batch_size, num_windows, window_size, feature_size)
     Returns a tensor of shape (batch_size, length, feature_size)
     """
     batch_size = params["train"]["batch_size"]
-    num_windows = windowed_tensor.shape[0] // batch_size
+    num_windows = sliced_tensor.shape[0] // batch_size
     window_size = params["transform"]["params"]["window_size"]
-    feature_size = windowed_tensor.shape[1] // window_size
-    windowed_tensor = windowed_tensor.view(
+    feature_size = sliced_tensor.shape[1] // window_size
+    sliced_tensor = sliced_tensor.view(
         batch_size, num_windows, window_size, feature_size
     )
     center_idx = window_size // 2  # e.g., 2 for window size of 5
 
     # Take the nth value from all windows for all features
-    center_values = windowed_tensor[:, :, center_idx, :]
+    center_values = sliced_tensor[:, :, center_idx, :]
 
     # Take the leftmost values from the first window for all batches and features
-    left_values = windowed_tensor[:, 0, :center_idx, :]
+    left_values = sliced_tensor[:, 0, :center_idx, :]
 
     # Take the rightmost values from the last window for all batches and features
-    right_values = windowed_tensor[:, -1, center_idx + 1 :, :]
+    right_values = sliced_tensor[:, -1, center_idx + 1 :, :]
 
     # Concatenate everything to reconstruct for each batch and feature
     reconstructed = torch.cat([left_values, center_values, right_values], dim=1)

@@ -5,16 +5,17 @@ import lightning.pytorch as pl
 from torcheval.metrics.functional import binary_auroc, binary_auprc
 from transformers import ASTModel
 
-from acoustic_anomaly_detection.utils import slide_window, reverse_slide_window
+from acoustic_anomaly_detection.utils import slice_signal, reconstruct_signal
 
 params = yaml.safe_load(open("params.yaml"))
 
 
 def get_model(model_name: str, input_size: int) -> pl.LightningModule:
+    model_type = params["model"]["type"]
     model = {
         "simple_ae": SimpleAE,
         "baseline_ae": BaselineAE,
-    }[params["model"]["type"]]
+    }[model_type]
     return model(model_name=model_name, input_size=input_size)
 
 
@@ -120,11 +121,11 @@ class SimpleAE(Model):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        z = slide_window(x)
+        z = slice_signal(x)
         z = nn.Flatten(-2, -1)(z)
         z = self.encoder(z)
         z = self.decoder(z)
-        z = reverse_slide_window(z)
+        z = reconstruct_signal(z)
         return z.view(x.shape)
 
 
@@ -174,7 +175,7 @@ class BaselineAE(Model):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # [batch_size, 313, 128]
-        z = slide_window(x)
+        z = slice_signal(x)
         # [batch_size, 309, 5, 128]
         z = nn.Flatten(0, 1)(z)
         # [batch_size * 309, 5, 128]
@@ -182,5 +183,5 @@ class BaselineAE(Model):
         # [batch_size * 309, 5 * 128]
         z = self.encoder(z)
         z = self.decoder(z)
-        z = reverse_slide_window(z)
+        z = reconstruct_signal(z)
         return z
