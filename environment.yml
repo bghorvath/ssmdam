@@ -1,0 +1,32 @@
+name: acoustic-anomaly-detection
+channels:
+  - defaults
+  - pytorch
+  - nvidia
+dependencies:
+  - python=3.11.3
+  - numpy
+  - pandas
+  - llvmlite
+  - sympy
+  - ipykernel
+  - matplotlib
+  - pre-commit
+  - pytest
+  # For GPU:
+  - pytorch=2.0.1
+  - torchvision>=0.15.2
+  - torchaudio=2.0.2
+  - pytorch-cuda=11.7
+  # For CPU (comment out GPU dependencies and uncomment these if needed):
+  # - pytorch=2.0.1
+  # - torchvision>=0.15.2
+  # - torchaudio=2.0.2
+  # - cpuonly
+  - pip:
+    - librosa
+    - lightning==2.0.2
+    - torcheval==0.0.6
+    - transformers==4.31.0
+    - dvc
+    - dvclive
