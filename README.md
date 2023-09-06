@@ -4,7 +4,6 @@
 
 
 ```
-pyenv install && pyenv local
-pyenv exec pip install poetry
-poetry install --with [cpu|gpu]
+[conda|mamba|micromamba] create -f environment.yaml
+[conda|mamba|micromamba] activate acoustic-anomaly-detection
 ```
