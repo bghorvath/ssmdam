@@ -1,22 +1,29 @@
 #!/bin/bash
 
+# Install requirements
 apt-get update
 apt-get install -y --no-install-recommends \
     python3.8 python3.8-dev python3-pip python3-setuptools python3-wheel \
     git make build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev \
     libsqlite3-dev wget curl llvm libncurses5-dev xz-utils tk-dev libxml2-dev \
-    libxmlsec1-dev libffi-dev liblzma-dev apt-transport-https
+    libxmlsec1-dev libffi-dev liblzma-dev
 
-echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
-curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
-apt-get update
-apt-get install google-cloud-cli
-
+# Install micromamba
 "${SHELL}" <(curl -L micro.mamba.pm/install.sh)
-source /root/.bashrc
 
+export MAMBA_EXE="$HOME/.local/bin/micromamba";
+export MAMBA_ROOT_PREFIX='micromamba';
+__mamba_setup="$("$MAMBA_EXE" shell hook --shell bash --root-prefix "$MAMBA_ROOT_PREFIX" 2> /dev/null)"
+if [ $? -eq 0 ]; then
+    eval "$__mamba_setup"
+else
+    alias micromamba="$MAMBA_EXE"  # Fallback
+fi
+unset __mamba_setup
+
+# Create and activate micromamba environment
 micromamba create -y -f environment.yml
 micromamba activate acoustic-anomaly-detection
 
-gcloud auth application-default login
+# Pull data from dvc remote storage
 dvc pull

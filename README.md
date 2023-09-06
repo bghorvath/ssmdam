@@ -4,6 +4,6 @@
 
 
 ```
-[conda|mamba|micromamba] create -f environment.yaml
-[conda|mamba|micromamba] activate acoustic-anomaly-detection
+bash easy_install.sh
+
 ```
