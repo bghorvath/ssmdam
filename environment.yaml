@@ -13,17 +13,20 @@ dependencies:
   - matplotlib
   - pre-commit
   - pytest
-  # For GPU:
-  - pytorch=2.0.1
-  - torchvision>=0.15.2
-  - torchaudio=2.0.2
-  - pytorch-cuda=11.7
   # For CPU (comment out GPU dependencies and uncomment these if needed):
   # - pytorch=2.0.1
   # - torchvision>=0.15.2
   # - torchaudio=2.0.2
   # - cpuonly
   - pip:
+    # For GPU (uncomment as needed):
+    - pytorch==2.0.1
+    - torchvision>=0.15.2
+    - torchaudio==2.0.2
+    # For CPU (uncomment as needed):
+    # - pytorch==2.0.1 -f https://download.pytorch.org/whl/cpu
+    # - torchvision>=0.15.2 -f https://download.pytorch.org/whl/cpu
+    # - torchaudio==2.0.2 -f https://download.pytorch.org/whl/cpu
     - librosa
     - lightning==2.0.2
     - torcheval==0.0.6
