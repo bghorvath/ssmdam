@@ -22,7 +22,7 @@ fi
 unset __mamba_setup
 
 # Create and activate micromamba environment
-micromamba create -y -f environment.yml
+micromamba create -y -f environment.yaml
 micromamba activate acoustic-anomaly-detection
 
 # Pull data from dvc remote storage
