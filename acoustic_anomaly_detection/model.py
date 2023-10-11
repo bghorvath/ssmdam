@@ -10,19 +10,18 @@ from acoustic_anomaly_detection.utils import slice_signal, reconstruct_signal
 params = yaml.safe_load(open("params.yaml"))
 
 
-def get_model(model_name: str, input_size: int) -> pl.LightningModule:
+def get_model(input_size: int) -> pl.LightningModule:
     model_type = params["model"]["type"]
     model = {
         "simple_ae": SimpleAE,
         "baseline_ae": BaselineAE,
     }[model_type]
-    return model(model_name=model_name, input_size=input_size)
+    return model(input_size=input_size)
 
 
 class Model(pl.LightningModule):
-    def __init__(self, model_name: str, input_size: int):
+    def __init__(self, input_size: int):
         super().__init__()
-        self.model_name = model_name
         self.input_size = input_size
         self.init_transformer()
 
@@ -37,7 +36,7 @@ class Model(pl.LightningModule):
         x_hat = self(x)
         loss = nn.functional.mse_loss(x_hat, x)
         self.log(
-            f"{self.model_name}_train_loss",
+            "train_loss",
             loss,
             on_step=True,
             on_epoch=True,
@@ -54,7 +53,7 @@ class Model(pl.LightningModule):
         x_hat = self(x)
         loss = nn.functional.mse_loss(x_hat, x)
         self.log(
-            f"{self.model_name}_val_loss",
+            "val_loss",
             loss,
             on_step=True,
             on_epoch=True,
@@ -83,8 +82,8 @@ class Model(pl.LightningModule):
         y = torch.tensor(self.y)
         auroc = binary_auroc(error_score, y)
         auprc = binary_auprc(error_score, y)
-        self.log(f"{self.model_name}_auroc_epoch", auroc, prog_bar=True, logger=True)
-        self.log(f"{self.model_name}_auprc_epoch", auprc, prog_bar=True, logger=True)
+        self.log("auroc_epoch", auroc, prog_bar=True, logger=True)
+        self.log("auprc_epoch", auprc, prog_bar=True, logger=True)
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
         return torch.optim.Adam(self.parameters(), lr=params["train"]["lr"])
@@ -104,8 +103,8 @@ class Model(pl.LightningModule):
 
 
 class SimpleAE(Model):
-    def __init__(self, model_name: str, input_size: int) -> None:
-        super().__init__(model_name, input_size)
+    def __init__(self, input_size: int) -> None:
+        super().__init__(input_size)
         self.encoder_layers = params["model"]["layers"]["encoder"]
         self.decoder_layers = params["model"]["layers"]["decoder"]
         self.save_hyperparameters()
@@ -135,8 +134,8 @@ class BaselineAE(Model):
     Source: https://github.com/nttcslab/dcase2023_task2_baseline_ae/blob/main/networks/dcase2023t2_ae/network.py
     """
 
-    def __init__(self, model_name: str, input_size: int) -> None:
-        super().__init__(model_name, input_size)
+    def __init__(self, input_size: int) -> None:
+        super().__init__(input_size)
         self.encoder_layers = params["model"]["layers"]["encoder"]
         self.decoder_layers = params["model"]["layers"]["decoder"]
         self.save_hyperparameters()

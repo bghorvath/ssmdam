@@ -1,5 +1,0 @@
-[core]
-    autostage = true
-    remote = dvc
-['remote "dvc"']
-    url = gs://dvc1259/

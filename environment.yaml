@@ -31,6 +31,4 @@ dependencies:
     - lightning==2.0.2
     - torcheval==0.0.6
     - transformers==4.31.0
-    - dvc
-    - dvc_gs
-    - dvclive
+    - mlflow==2.7.1

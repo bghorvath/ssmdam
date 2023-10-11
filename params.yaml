@@ -1,7 +1,6 @@
 misc:
   num_workers: 8
-  ckpt_dir: models
-  log_dir: results
+  run_dir: mlruns
 
 data:
   train_split: 0.8
