@@ -105,5 +105,5 @@ class AudioDataset(Dataset):
     def __getitem__(self, idx) -> tuple[torch.Tensor, dict[str, str]]:
         file_path = self.file_list[idx]
         signal, sr = torchaudio.load(file_path)
-        attributes = get_attributes(os.path.basename(file_path))
+        attributes = get_attributes(file_path)
         return self.transform(signal, sr), attributes

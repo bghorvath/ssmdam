@@ -7,16 +7,28 @@ import mlflow
 params = yaml.safe_load(open("params.yaml"))
 
 
-def get_attributes(file_name: str):
+def get_attributes(file_path: str):
     """
-    Extracts attributes from a file name.
-    Expected format: section_{section}_{domain}_{split}_{label}_{attribute1}_{value1}_{attribute2}_{value2}...
+    Extracts attributes from a file path.
+    Expected format: data/{data_source}/{dev_eval}/{machine_type}/{train_test}/{file_name}
+    file_name: section_{section}_{domain}_{split}_{label}_{attribute1}_{value1}_{attribute2}_{value2}...
     """
+    _, data_source, dev_eval, machine_type, train_test, file_name = file_path.split("/")
+    attributes["data_source"] = data_source
+    attributes["dev_eval"] = dev_eval
+    attributes["machine_type"] = machine_type
+    attributes["train_test"] = train_test
+
     file_details = file_name.split("_")
-    attributes = {k: v for k, v in zip(file_details[6::2], file_details[7::2])}
     attributes["section"] = file_details[1]
+
+    # for validation data
+    if len(file_details) <= 3:
+        return attributes
+
+    attributes = {k: v for k, v in zip(file_details[6::2], file_details[7::2])}
     attributes["domain"] = file_details[2]
-    attributes["split"] = file_details[3]
+    # attributes["split"] = file_details[3]
     attributes["label"] = file_details[4]
     return attributes
 
