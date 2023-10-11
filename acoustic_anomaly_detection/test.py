@@ -8,15 +8,13 @@ import mlflow
 from acoustic_anomaly_detection.dataset import AudioDataset
 from acoustic_anomaly_detection.model import get_model
 from acoustic_anomaly_detection.utils import (
-    get_groupings,
     get_train_status,
-    update_train_status,
 )
-
-params = yaml.safe_load(open("params.yaml"))
 
 
 def test(run_id: str):
+    params = yaml.safe_load(open("params.yaml"))
+
     num_workers = params["misc"]["num_workers"]
     data_sources = params["data"]["data_sources"]
     run_dir = params["misc"]["run_dir"]
@@ -34,9 +32,6 @@ def test(run_id: str):
         for data_path, status in train_status["tested"].items()
         if not status
     ]
-    print(
-        f"Testing: {', '.join([data_path.split('/')[-2] for data_path in data_paths])}"
-    )
     file_list = [
         os.path.join(data_path, file)
         for data_path in data_paths
@@ -66,5 +61,4 @@ def test(run_id: str):
 
     trainer = Trainer(logger=mlflow_logger)
 
-    with mlflow.start_run(run_id=run_id):
-        trainer.test(model=model, dataloaders=test_loader, ckpt_path="best")
+    trainer.test(model=model, dataloaders=test_loader, ckpt_path="best")

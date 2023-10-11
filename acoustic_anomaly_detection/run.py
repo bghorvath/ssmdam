@@ -1,6 +1,5 @@
 import argparse
 import json
-import yaml
 from datetime import datetime
 import mlflow
 from acoustic_anomaly_detection.train import train
@@ -40,7 +39,7 @@ if __name__ == "__main__":
             )
 
         run_name = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        with mlflow.start_run(run_name=args.run_name):
+        with mlflow.start_run(run_name=run_name):
             train_status = init_train_status()
             mlflow.set_tag("train_status", json.dumps(train_status))
             run_id = mlflow.active_run().info.run_id

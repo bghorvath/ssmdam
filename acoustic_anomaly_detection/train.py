@@ -12,10 +12,10 @@ from acoustic_anomaly_detection.dataset import AudioDataset
 from acoustic_anomaly_detection.model import get_model
 from acoustic_anomaly_detection.utils import get_train_status, update_train_status
 
-params = yaml.safe_load(open("params.yaml"))
-
 
 def train(run_id: str):
+    params = yaml.safe_load(open("params.yaml"))
+
     seed = params["train"]["seed"]
     epochs = params["train"]["epochs"]
     batch_size = params["train"]["batch_size"]
@@ -37,9 +37,6 @@ def train(run_id: str):
         for data_path, status in train_status["trained"].items()
         if not status
     ]
-    print(
-        f"Training: {', '.join([data_path.split('/')[-2] for data_path in data_paths])}"
-    )
     file_list = [
         os.path.join(data_path, file)
         for data_path in data_paths
@@ -85,7 +82,7 @@ def train(run_id: str):
     )
 
     logger = MLFlowLogger(
-        experiment_name=mlflow.active_run().info.experiment_name,
+        experiment_name="Default",
         run_id=run_id,
     )
 
@@ -96,10 +93,9 @@ def train(run_id: str):
         callbacks=[checkpoint_callback],
     )
 
-    with mlflow.start_run(run_id=run_id):
-        trainer.fit(
-            model,
-            train_loader,
-            val_loader,
-            ckpt_path="last" if os.path.exists(ckpt_path) else None,
-        )
+    trainer.fit(
+        model,
+        train_loader,
+        val_loader,
+        ckpt_path="last" if os.path.exists(ckpt_path) else None,
+    )

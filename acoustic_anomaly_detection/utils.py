@@ -14,6 +14,7 @@ def get_attributes(file_path: str):
     file_name: section_{section}_{domain}_{split}_{label}_{attribute1}_{value1}_{attribute2}_{value2}...
     """
     _, data_source, dev_eval, machine_type, train_test, file_name = file_path.split("/")
+    attributes = {}
     attributes["data_source"] = data_source
     attributes["dev_eval"] = dev_eval
     attributes["machine_type"] = machine_type
@@ -26,10 +27,11 @@ def get_attributes(file_path: str):
     if len(file_details) <= 3:
         return attributes
 
-    attributes = {k: v for k, v in zip(file_details[6::2], file_details[7::2])}
     attributes["domain"] = file_details[2]
     # attributes["split"] = file_details[3]
     attributes["label"] = file_details[4]
+    add_attributes = {k: v for k, v in zip(file_details[6::2], file_details[7::2])}
+    attributes.update(add_attributes)
     return attributes
 
 
@@ -78,9 +80,6 @@ def reconstruct_signal(sliced_tensor: torch.Tensor) -> torch.Tensor:
     reconstructed = torch.cat([left_values, center_values, right_values], dim=1)
 
     return reconstructed
-
-
-params = yaml.safe_load(open("params.yaml"))
 
 
 def init_train_status() -> dict[str, dict[str, bool]]:
