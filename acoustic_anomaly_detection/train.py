@@ -8,7 +8,7 @@ from lightning import Trainer
 from lightning.pytorch.callbacks import ModelCheckpoint
 from lightning.pytorch.loggers import MLFlowLogger
 import mlflow
-from acoustic_anomaly_detection.dataset import AudioDataset
+from acoustic_anomaly_detection.dataset import AudioDataModule
 from acoustic_anomaly_detection.model import get_model
 from acoustic_anomaly_detection.utils import get_train_status, update_train_status
 
@@ -42,31 +42,7 @@ def train(run_id: str):
         for data_path in data_paths
         for file in os.listdir(data_path)
     ]
-    dataset = AudioDataset(
-        file_list=file_list,
-        fast_dev_run=fast_dev_run,
-    )
-    train_size = int(len(dataset) * train_split)
-    val_size = len(dataset) - train_size
-
-    train_dataset, val_dataset = random_split(
-        dataset, [train_size, val_size], generator=generator
-    )
-
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=batch_size,
-        num_workers=num_workers,
-        shuffle=True,
-        drop_last=True,
-    )
-    val_loader = DataLoader(
-        val_dataset,
-        batch_size=batch_size,
-        num_workers=num_workers,
-        shuffle=False,
-        drop_last=True,
-    )
+    data_module = AudioDataModule(file_list=file_list)
 
     input_size = train_dataset[0][0].shape[1] * window_size
     model = get_model(input_size=input_size)

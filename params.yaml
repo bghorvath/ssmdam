@@ -9,7 +9,7 @@ data:
     - dcase2023t2
 
 transform:
-  type: ast
+  type: mel_spectrogram
   segment: False
   params:
   # audio params
@@ -44,6 +44,7 @@ model:
 
 train:
   seed: 42
-  epochs: 100
+  epochs: 2
   batch_size: 16
   lr: 0.001
+  mix_machine_types: False
