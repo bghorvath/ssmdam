@@ -4,7 +4,6 @@ from datetime import datetime
 import mlflow
 from acoustic_anomaly_detection.train import train
 from acoustic_anomaly_detection.test import test
-from acoustic_anomaly_detection.utils import init_train_status, get_train_status
 
 
 if __name__ == "__main__":
@@ -35,40 +34,21 @@ if __name__ == "__main__":
     if not args.run_id:
         if not args.train:
             raise ValueError(
-                "If not resuming an existing run, you must specify the --train flag."
+                "Either specify run_id to resume run, or specify --train to start a new run."
             )
 
         run_name = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        with mlflow.start_run(run_name=run_name):
-            train_status = init_train_status()
-            mlflow.set_tag("train_status", json.dumps(train_status))
-            run_id = mlflow.active_run().info.run_id
+        with mlflow.start_run(run_name=run_name) as mlrun:
+            run_id = mlrun.info.run_id
             print(f"Started run with ID: {run_id}")
     else:
         run_id = args.run_id
         if mlflow.get_run(run_id) is None:
             raise ValueError(f"Run with ID {run_id} not found.")
         print(f"Resuming run with ID: {run_id}")
-        train_status = get_train_status(run_id)
 
     if args.train:
-        to_train = ", ".join(
-            [
-                data_path.split("/")[-1]
-                for data_path, status in train_status["trained"].items()
-                if not status
-            ]
-        )
-        print(f"Training: {to_train}")
         train(run_id)
 
     if args.test:
-        to_test = ", ".join(
-            [
-                data_path.split("/")[-1]
-                for data_path, status in train_status["tested"].items()
-                if not status
-            ]
-        )
-        print(f"Testing: {to_test}")
         test(run_id)

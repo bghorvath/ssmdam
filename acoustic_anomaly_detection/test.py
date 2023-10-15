@@ -1,15 +1,10 @@
 import os
 import yaml
-from tqdm import tqdm
-from torch.utils.data import DataLoader
 from lightning import Trainer
 from lightning.pytorch.loggers import MLFlowLogger
 import mlflow
-from acoustic_anomaly_detection.dataset import AudioDataset
+from acoustic_anomaly_detection.dataset import AudioDataModule
 from acoustic_anomaly_detection.model import get_model
-from acoustic_anomaly_detection.utils import (
-    get_train_status,
-)
 
 
 def test(run_id: str):
@@ -20,45 +15,25 @@ def test(run_id: str):
     run_dir = params["misc"]["run_dir"]
     fast_dev_run = params["data"]["fast_dev_run"]
 
-    train_status = get_train_status(run_id)
+    with mlflow.start_run(run_id=run_id) as mlrun:
+        experiment_id = mlrun.info.experiment_id
+        ckpt_dir = os.path.join(
+            run_dir, experiment_id, run_id, "artifacts", "checkpoints"
+        )
+        ckpt_path = os.path.join(ckpt_dir, "best.ckpt")
 
-    artifact_uri = mlflow.get_artifact_uri()
-    ckpt_dir = os.path.join(artifact_uri, "checkpoints", machine_type)
-    ckpt_path = os.path.join(ckpt_dir, "last.ckpt")
+        data_module = AudioDataModule()
+        data_module.setup("test")
 
-    train_status = get_train_status(run_id)
-    data_paths = [
-        os.path.join(data_path, "test")
-        for data_path, status in train_status["tested"].items()
-        if not status
-    ]
-    file_list = [
-        os.path.join(data_path, file)
-        for data_path in data_paths
-        for file in os.listdir(data_path)
-    ]
-    dataset = AudioDataset(
-        file_list=file_list,
-        fast_dev_run=fast_dev_run,
-    )
+        input_size = data_module.compute_input_size()
+        model = get_model(input_size=input_size)
 
-    test_loader = DataLoader(
-        dataset,
-        batch_size=1,
-        num_workers=num_workers,
-        shuffle=False,
-        drop_last=True,
-    )
+        logger = MLFlowLogger(run_id=run_id)
 
-    input_size = dataset[0][0].shape[1:].numel()
-    model = get_model(input_size=input_size)
-    model = model.load_from_checkpoint(ckpt_path)
+        trainer = Trainer(logger=logger)
 
-    logger = MLFlowLogger(
-        experiment_name="Default",
-        run_id=run_id,
-    )
-
-    trainer = Trainer(logger=mlflow_logger)
-
-    trainer.test(model=model, dataloaders=test_loader, ckpt_path="best")
+        trainer.test(
+            model=model,
+            datamodule=data_module,
+            ckpt_path=ckpt_path,
+        )

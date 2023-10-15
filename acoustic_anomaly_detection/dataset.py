@@ -2,10 +2,10 @@ import os
 import random
 import yaml
 import torch
-from torch.utils.data import Dataset, DataLoader, Sampler, random_split
+from torch.utils.data import Dataset, DataLoader, random_split
 import torchaudio
 from torchaudio.transforms import MelSpectrogram, MFCC, Spectrogram, AmplitudeToDB
-import lightning.pytorch as pl
+from lightning.pytorch import LightningDataModule
 from transformers import AutoProcessor
 
 
@@ -67,6 +67,18 @@ class AudioDataset(Dataset):
             random.seed(self.seed)
             self.file_list = random.sample(self.file_list, 100)
 
+        self.attributes_list = self.get_attributes_list()
+
+    def get_attributes_list(self):
+        attributes_list = [get_attributes(fp) for fp in self.file_list]
+
+        all_keys = set().union(*(attr.keys() for attr in attributes_list))
+        for attr in attributes_list:
+            for key in all_keys:
+                attr.setdefault(key, "None")
+
+        return attributes_list
+
     def __len__(self) -> int:
         return len(self.file_list)
 
@@ -106,104 +118,88 @@ class AudioDataset(Dataset):
 
     def __getitem__(self, idx) -> tuple[torch.Tensor, dict[str, str]]:
         file_path = self.file_list[idx]
+        attributes = self.attributes_list[idx]
         signal, sr = torchaudio.load(file_path)
-        attributes = get_attributes(file_path)
-        return self.transform(signal, sr), attributes
+        if signal is None:
+            raise ValueError(
+                f"Signal loading failed for index: {idx}, file_path: {file_path}"
+            )
+        if attributes is None:
+            raise ValueError(
+                f"Attributes loading failed for index: {idx}, file_path: {file_path}"
+            )
+
+        transformed_data = self.transform(signal, sr)
+        if transformed_data is None or any(v is None for v in transformed_data):
+            raise ValueError(f"Data loading failed for index: {idx}")
+        return transformed_data, attributes
 
 
-class MachineTypeSampler(Sampler):
-    def __init__(self, dataset, batch_size, mix_machine_types):
-        self.dataset = dataset
-        self.batch_size = batch_size
-        self.mix_machine_types = mix_machine_types
-
-        # Group indices by machine type
-        self.machine_type_indices = {}
-        for idx, (_, attributes) in enumerate(dataset):
-            machine_type = attributes["machine_type"]
-            if machine_type not in self.machine_type_indices:
-                self.machine_type_indices[machine_type] = []
-            self.machine_type_indices[machine_type].append(idx)
-
-    def __iter__(self):
-        batch = []
-        machine_types = list(self.machine_type_indices.keys())
-
-        if self.mix_machine_types:
-            all_indices = list(range(len(self.dataset)))
-            random.shuffle(all_indices)
-            return iter(all_indices)
-        else:
-            for idx in range(len(self.dataset)):
-                # Select a machine type
-                machine_type = random.choice(machine_types)
-
-                # Select an instance of that machine type
-                machine_idx = random.choice(self.machine_type_indices[machine_type])
-                batch.append(machine_idx)
-
-                if len(batch) == self.batch_size:
-                    yield batch
-                    batch = []
-            if len(batch) > 0:
-                yield batch
-
-    def __len__(self):
-        return len(self.dataset)
-
-
-class AudioDataModule(pl.LightningDataModule):
-    def __init__(self, file_list):
+class AudioDataModule(LightningDataModule):
+    def __init__(self):
         super().__init__()
-        self.file_list = file_list
         self.fast_dev_run = params["data"]["fast_dev_run"]
         self.train_split = params["data"]["train_split"]
         self.batch_size = params["train"]["batch_size"]
         self.num_workers = params["misc"]["num_workers"]
         self.mix_machine_types = params["train"]["mix_machine_types"]
+        self.window_size = params["transform"]["params"]["window_size"]
+        self.seed = params["train"]["seed"]
+        self.data_sources = params["data"]["data_sources"]
 
     def setup(self, stage=None):
+        dev_eval = "dev" if stage in ("fit", "test") else "eval"
+        train_test = "train" if stage in ("fit", "finetune") else "test"
+        data_paths = [
+            os.path.join("data", data_source, dev_eval, data_dir, train_test)
+            for data_source in self.data_sources
+            for data_dir in os.listdir(os.path.join("data", data_source, dev_eval))
+        ]
+        file_list = [
+            os.path.join(data_path, file)
+            for data_path in data_paths
+            for file in os.listdir(data_path)
+        ]
+
+        dataset = AudioDataset(file_list=file_list, fast_dev_run=self.fast_dev_run)
         if stage == "fit":
-            dataset = AudioDataset(
-                file_list=self.file_list, fast_dev_run=self.fast_dev_run
-            )
+            generator = torch.Generator().manual_seed(self.seed)
             train_size = int(len(dataset) * self.train_split)
             val_size = len(dataset) - train_size
-            self.train_dataset, self.val_dataset = random_split(
-                dataset, [train_size, val_size]
+            self.dataset, self.val_dataset = random_split(
+                dataset=dataset, lengths=[train_size, val_size], generator=generator
             )
         elif stage == "test":
-            self.test_dataset = AudioDataset(
-                file_list=self.file_list, fast_dev_run=self.fast_dev_run
-            )
+            self.dataset = dataset
 
     def train_dataloader(self):
-        train_sampler = MachineTypeSampler(self.train_dataset)
-        return DataLoader(
-            self.train_dataset,
+        dataloader = DataLoader(
+            self.dataset,
             batch_size=self.batch_size,
-            sampler=train_sampler,
             num_workers=self.num_workers,
             drop_last=True,
+            shuffle=True,
         )
+        return dataloader
 
     def val_dataloader(self):
-        val_sampler = MachineTypeSampler(
-            self.val_dataset, self.batch_size, self.mix_machine_types
-        )
         return DataLoader(
             self.val_dataset,
             batch_size=self.batch_size,
-            sampler=val_sampler,
             num_workers=self.num_workers,
             drop_last=True,
+            shuffle=False,
         )
 
     def test_dataloader(self):
         return DataLoader(
-            self.test_dataset,
+            self.dataset,
             batch_size=1,
             num_workers=self.num_workers,
             shuffle=False,
             drop_last=True,
         )
+
+    def compute_input_size(self):
+        input_size = self.dataset[0][0].shape[1] * self.window_size
+        return input_size

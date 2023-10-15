@@ -37,7 +37,7 @@ class Model(pl.LightningModule):
         x_hat = self(x)
         loss = nn.functional.mse_loss(x_hat, x)
         self.log(
-            f"{machine_type}_train_loss",
+            "train_loss",
             loss,
             on_step=True,
             on_epoch=True,
@@ -55,7 +55,7 @@ class Model(pl.LightningModule):
         x_hat = self(x)
         loss = nn.functional.mse_loss(x_hat, x)
         self.log(
-            f"{machine_type}_val_loss",
+            "val_loss",
             loss,
             on_step=True,
             on_epoch=True,

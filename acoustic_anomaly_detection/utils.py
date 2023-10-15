@@ -13,7 +13,9 @@ def get_attributes(file_path: str):
     Expected format: data/{data_source}/{dev_eval}/{machine_type}/{train_test}/{file_name}
     file_name: section_{section}_{domain}_{split}_{label}_{attribute1}_{value1}_{attribute2}_{value2}...
     """
-    _, data_source, dev_eval, machine_type, train_test, file_name = file_path.split("/")
+    _, data_source, dev_eval, machine_type, train_test, file_name = file_path.replace(
+        ".wav", ""
+    ).split("/")
     attributes = {}
     attributes["data_source"] = data_source
     attributes["dev_eval"] = dev_eval
@@ -80,45 +82,3 @@ def reconstruct_signal(sliced_tensor: torch.Tensor) -> torch.Tensor:
     reconstructed = torch.cat([left_values, center_values, right_values], dim=1)
 
     return reconstructed
-
-
-def init_train_status() -> dict[str, dict[str, bool]]:
-    """
-    Initialize a dictionary with models and their train status.
-    """
-    data_sources = params["data"]["data_sources"]
-    dev_data_paths = [
-        os.path.join("data", data_source, "dev", data_dir)
-        for data_source in data_sources
-        for data_dir in os.listdir(os.path.join("data", data_source, "dev"))
-    ]
-    eval_data_paths = [
-        os.path.join("data", data_source, "eval", data_dir)
-        for data_source in data_sources
-        for data_dir in os.listdir(os.path.join("data", data_source, "eval"))
-    ]
-    return {
-        "trained": {data_path: False for data_path in dev_data_paths},
-        "tested": {data_path: False for data_path in dev_data_paths},
-        "finetuned": {data_path: False for data_path in eval_data_paths},
-        "evaluated": {data_path: False for data_path in eval_data_paths},
-    }
-
-
-def get_train_status(run_id: str) -> dict[str, dict[str, bool]]:
-    """
-    Fetch the training status dictionary from MLflow.
-    """
-    status_str = mlflow.get_run(run_id).data.tags.get("train_status", "{}")
-    return json.loads(status_str)
-
-
-def update_train_status(
-    run_id: str, stage: str, model_name: str, step: str, status: bool = True
-) -> None:
-    """
-    Update the train status of a model for a specific step in MLflow.
-    """
-    current_status = get_train_status(run_id)
-    current_status[stage][model_name][step] = status
-    mlflow.set_tag("train_status", json.dumps(current_status))
