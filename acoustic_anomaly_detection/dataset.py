@@ -162,6 +162,7 @@ class AudioDataModule(LightningDataModule):
         ]
 
         dataset = AudioDataset(file_list=file_list, fast_dev_run=self.fast_dev_run)
+
         if stage == "fit":
             generator = torch.Generator().manual_seed(self.seed)
             train_size = int(len(dataset) * self.train_split)

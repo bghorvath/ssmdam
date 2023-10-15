@@ -54,13 +54,12 @@ def slice_signal(signal: torch.Tensor) -> torch.Tensor:
     return torch.stack(windows, dim=1)
 
 
-def reconstruct_signal(sliced_tensor: torch.Tensor) -> torch.Tensor:
+def reconstruct_signal(sliced_tensor: torch.Tensor, batch_size: int) -> torch.Tensor:
     """
     Reconstructs the original tensor from a windowed tensor.
     Expected shape: (batch_size, num_windows, window_size, feature_size)
     Returns a tensor of shape (batch_size, length, feature_size)
     """
-    batch_size = params["train"]["batch_size"]
     num_windows = sliced_tensor.shape[0] // batch_size
     window_size = params["transform"]["params"]["window_size"]
     feature_size = sliced_tensor.shape[1] // window_size

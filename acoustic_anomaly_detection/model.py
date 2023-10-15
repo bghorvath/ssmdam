@@ -69,7 +69,7 @@ class Model(pl.LightningModule):
     ) -> None:
         x, attributes = batch
         label = attributes["label"]
-        machine_type = attributes["machine_type"]
+        machine_type = attributes["machine_type"][0]
         x = self.transform(x)
         x_hat = self(x)
         error_score = torch.mean(torch.square(x_hat - x))
@@ -80,7 +80,7 @@ class Model(pl.LightningModule):
 
         self.error_scores[machine_type].append(error_score.item())
         y = 1 if label == "anomaly" else 0
-        self.y.append(y)
+        self.ys[machine_type].append(y)
 
     def on_test_epoch_start(self) -> None:
         self.error_scores = {}
@@ -88,12 +88,12 @@ class Model(pl.LightningModule):
 
     def on_test_epoch_end(self) -> None:
         for machine_type, error_score in self.error_scores.items():
-            error_score = torch.tensor(self.error_score)
+            error_score = torch.tensor(error_score)
             y = self.ys[machine_type]
             y = torch.tensor(y)
 
-            auroc = binary_auroc(error_score, y)
-            auprc = binary_auprc(error_score, y)
+            auroc = binary_auroc(error_score, y).float()
+            auprc = binary_auprc(error_score, y).float()
 
             self.log(f"{machine_type}_auroc_epoch", auroc, prog_bar=True, logger=True)
             self.log(f"{machine_type}_auprc_epoch", auprc, prog_bar=True, logger=True)
@@ -133,11 +133,12 @@ class SimpleAE(Model):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        batch_size = x.shape[0]
         z = slice_signal(x)
         z = nn.Flatten(-2, -1)(z)
         z = self.encoder(z)
         z = self.decoder(z)
-        z = reconstruct_signal(z)
+        z = reconstruct_signal(z, batch_size)
         return z.view(x.shape)
 
 
@@ -186,6 +187,7 @@ class BaselineAE(Model):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        batch_size = x.shape[0]
         # [batch_size, 313, 128]
         z = slice_signal(x)
         # [batch_size, 309, 5, 128]
@@ -195,5 +197,5 @@ class BaselineAE(Model):
         # [batch_size * 309, 5 * 128]
         z = self.encoder(z)
         z = self.decoder(z)
-        z = reconstruct_signal(z)
+        z = reconstruct_signal(z, batch_size)
         return z
