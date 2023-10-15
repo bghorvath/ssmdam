@@ -1,0 +1,6 @@
+outs:
+- md5: 4c0cc0f6a8d9fdb3246a2a04a6f122fc.dir
+  size: 5800344261
+  nfiles: 16814
+  hash: md5
+  path: dcase2023t2

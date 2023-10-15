@@ -20,11 +20,11 @@ dependencies:
   # - cpuonly
   - pip:
     # For GPU (uncomment as needed):
-    - pytorch==2.0.1
+    - torch==2.0.1
     - torchvision>=0.15.2
     - torchaudio==2.0.2
     # For CPU (uncomment as needed):
-    # - pytorch==2.0.1 -f https://download.pytorch.org/whl/cpu
+    # - torch==2.0.1 -f https://download.pytorch.org/whl/cpu
     # - torchvision>=0.15.2 -f https://download.pytorch.org/whl/cpu
     # - torchaudio==2.0.2 -f https://download.pytorch.org/whl/cpu
     - librosa
@@ -32,3 +32,5 @@ dependencies:
     - torcheval==0.0.6
     - transformers==4.31.0
     - mlflow==2.7.1
+    - dvc==3.26.1
+    - dvc-gs==2.22.1
