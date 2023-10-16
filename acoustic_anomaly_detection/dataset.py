@@ -164,14 +164,17 @@ class AudioDataModule(LightningDataModule):
         dataset = AudioDataset(file_list=file_list, fast_dev_run=self.fast_dev_run)
 
         if stage == "fit":
-            generator = torch.Generator().manual_seed(self.seed)
-            train_size = int(len(dataset) * self.train_split)
-            val_size = len(dataset) - train_size
-            self.dataset, self.val_dataset = random_split(
-                dataset=dataset, lengths=[train_size, val_size], generator=generator
-            )
+            self.dataset, self.val_dataset = self.train_val_split(dataset)
         elif stage == "test":
             self.dataset = dataset
+
+    def train_val_split(self, dataset: Dataset) -> tuple[Dataset, Dataset]:
+        generator = torch.Generator().manual_seed(self.seed)
+        train_size = int(len(dataset) * self.train_split)
+        val_size = len(dataset) - train_size
+        return random_split(
+            dataset=dataset, lengths=[train_size, val_size], generator=generator
+        )
 
     def train_dataloader(self):
         dataloader = DataLoader(
@@ -186,7 +189,7 @@ class AudioDataModule(LightningDataModule):
     def val_dataloader(self):
         return DataLoader(
             self.val_dataset,
-            batch_size=self.batch_size,
+            batch_size=1,
             num_workers=self.num_workers,
             drop_last=True,
             shuffle=False,

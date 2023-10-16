@@ -50,10 +50,20 @@ class Model(pl.LightningModule):
         self, batch: tuple[torch.Tensor, dict[str, str]], batch_idx: int
     ) -> torch.Tensor:
         x, attributes = batch
-        machine_type = attributes["machine_type"]
+        machine_type = attributes["machine_type"][0]
+        label = attributes["label"][0]
         x = self.transform(x)
         x_hat = self(x)
         loss = nn.functional.mse_loss(x_hat, x)
+
+        if machine_type not in self.val_error_scores:
+            self.val_error_scores[machine_type] = []
+            self.val_ys[machine_type] = []
+
+        self.val_error_scores[machine_type].append(loss.item())
+        y = 1 if attributes["label"] == "anomaly" else 0
+        self.val_ys[machine_type].append(y)
+
         self.log(
             "val_loss",
             loss,
@@ -63,6 +73,22 @@ class Model(pl.LightningModule):
             logger=True,
         )
         return loss
+
+    def on_validation_epoch_start(self) -> None:
+        self.val_error_scores = {}
+        self.val_ys = {}
+
+    def on_validation_epoch_end(self) -> None:
+        for machine_type, error_score in self.val_error_scores.items():
+            error_score = torch.tensor(error_score)
+            mean_error_score = torch.mean(error_score)
+
+            self.log(
+                f"{machine_type}_val_loss_epoch",
+                mean_error_score,
+                prog_bar=True,
+                logger=True,
+            )
 
     def test_step(
         self, batch: tuple[torch.Tensor, dict[str, str]], batch_idx: int
@@ -74,22 +100,22 @@ class Model(pl.LightningModule):
         x_hat = self(x)
         error_score = torch.mean(torch.square(x_hat - x))
 
-        if machine_type not in self.error_scores:
-            self.error_scores[machine_type] = []
-            self.ys[machine_type] = []
+        if machine_type not in self.test_error_scores:
+            self.test_error_scores[machine_type] = []
+            self.test_ys[machine_type] = []
 
-        self.error_scores[machine_type].append(error_score.item())
+        self.test_error_scores[machine_type].append(error_score.item())
         y = 1 if label == "anomaly" else 0
-        self.ys[machine_type].append(y)
+        self.test_ys[machine_type].append(y)
 
     def on_test_epoch_start(self) -> None:
-        self.error_scores = {}
-        self.ys = {}
+        self.test_error_scores = {}
+        self.test_ys = {}
 
     def on_test_epoch_end(self) -> None:
-        for machine_type, error_score in self.error_scores.items():
+        for machine_type, error_score in self.test_error_scores.items():
             error_score = torch.tensor(error_score)
-            y = self.ys[machine_type]
+            y = self.test_ys[machine_type]
             y = torch.tensor(y)
 
             auroc = binary_auroc(error_score, y).float()
@@ -97,6 +123,27 @@ class Model(pl.LightningModule):
 
             self.log(f"{machine_type}_auroc_epoch", auroc, prog_bar=True, logger=True)
             self.log(f"{machine_type}_auprc_epoch", auprc, prog_bar=True, logger=True)
+
+    def predict_step(
+        self, batch: tuple[torch.Tensor, dict[str, str]], batch_idx: int
+    ) -> None:
+        x, attributes = batch
+        machine_type = attributes["machine_type"][0]
+        x = self.transform(x)
+        x_hat = self(x)
+        error_score = torch.mean(torch.square(x_hat - x))
+
+        if machine_type not in self.test_error_scores:
+            self.test_error_scores[machine_type] = []
+
+        self.test_error_scores[machine_type].append(error_score.item())
+
+    def on_predict_epoch_start(self) -> None:
+        self.test_error_scores = {}
+
+    def on_predict_epoch_end(self) -> None:
+        for machine_type, error_score in self.test_error_scores.items():
+            error_score = torch.tensor(error_score)
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
         return torch.optim.Adam(self.parameters(), lr=params["train"]["lr"])
