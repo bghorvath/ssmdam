@@ -68,7 +68,7 @@ class Model(pl.LightningModule):
         self, batch: tuple[torch.Tensor, dict[str, str]], batch_idx: int
     ) -> None:
         x, attributes = batch
-        label = attributes["label"]
+        label = attributes["label"][0]
         machine_type = attributes["machine_type"][0]
         x = self.transform(x)
         x_hat = self(x)
