@@ -145,8 +145,15 @@ class Model(pl.LightningModule):
         for machine_type, error_score in self.test_error_scores.items():
             error_score = torch.tensor(error_score)
 
+    def freeze_encoder(self):
+        for param in self.encoder.parameters():
+            param.requires_grad = False
+
     def configure_optimizers(self) -> torch.optim.Optimizer:
-        return torch.optim.Adam(self.parameters(), lr=params["train"]["lr"])
+        return torch.optim.Adam(
+            filter(lambda p: p.requires_grad, self.parameters()),
+            lr=params["train"]["lr"],
+        )
 
     def transform(self, x: torch.Tensor) -> torch.Tensor:
         if params["transform"]["type"] == "ast":

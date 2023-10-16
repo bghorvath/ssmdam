@@ -10,10 +10,16 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Run training/testing/finetuning/evaluation steps."
     )
+    parser.add_argument("--all", action="store_true", help="Run all steps.")
     parser.add_argument("--train", action="store_true", help="Run the training step.")
     parser.add_argument("--test", action="store_true", help="Run the testing step.")
-    # parser.add_argument("--finetune", action="store_true", help="Run the finetuning step.")
-    # parser.add_argument("--eval", action="store_true", help="Run the evaluation step.")
+    parser.add_argument(
+        "--finetune", action="store_true", help="Run the finetuning step."
+    )
+    parser.add_argument(
+        "--evaluate", action="store_true", help="Run the evaluation step."
+    )
+    # parser.add_argument("--config", type=str, default=None, help="Path to config file."")
     parser.add_argument(
         "--run_id",
         type=str,
@@ -30,6 +36,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     mlflow.set_experiment(args.experiment_name)
+
+    if args.all:
+        args.train = True
+        args.test = True
+        args.finetune = True
+        args.evaluate = True
 
     if not args.run_id:
         if not args.train:
@@ -52,3 +64,9 @@ if __name__ == "__main__":
 
     if args.test:
         test(run_id)
+
+    # if args.finetune:
+    #     finetune(run_id)
+
+    # if args.evaluate:
+    #     evaluate(run_id)

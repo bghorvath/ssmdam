@@ -7,7 +7,7 @@ from acoustic_anomaly_detection.dataset import AudioDataModule
 from acoustic_anomaly_detection.model import get_model
 
 
-def test(run_id: str):
+def evaluate(run_id: str):
     params = yaml.safe_load(open("params.yaml"))
 
     num_workers = params["misc"]["num_workers"]
@@ -18,12 +18,12 @@ def test(run_id: str):
     with mlflow.start_run(run_id=run_id) as mlrun:
         experiment_id = mlrun.info.experiment_id
         ckpt_dir = os.path.join(
-            run_dir, experiment_id, run_id, "artifacts", "checkpoints", "train"
+            run_dir, experiment_id, run_id, "artifacts", "checkpoints", "finetune"
         )
         ckpt_path = os.path.join(ckpt_dir, "best.ckpt")
 
         data_module = AudioDataModule()
-        data_module.setup("test")
+        data_module.setup("evaluate")
 
         input_size = data_module.compute_input_size()
         model = get_model(input_size=input_size)
@@ -32,7 +32,7 @@ def test(run_id: str):
 
         trainer = Trainer(logger=logger)
 
-        trainer.test(
+        trainer.predict(
             model=model,
             datamodule=data_module,
             ckpt_path=ckpt_path,
