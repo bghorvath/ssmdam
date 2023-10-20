@@ -31,9 +31,6 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    experiment_name = "Test" if params["data"]["fast_dev_run"] else "Default"
-    mlflow.set_experiment(experiment_name)
-
     if args.all:
         args.train = True
         args.test = True
@@ -41,6 +38,8 @@ if __name__ == "__main__":
         args.evaluate = True
 
     if not args.run_id:
+        experiment_name = "Test" if params["data"]["fast_dev_run"] else "Default"
+        mlflow.set_experiment(experiment_name)
         if not args.train:
             raise ValueError(
                 "Either specify run_id to resume run, or specify --train to start a new run."
