@@ -44,7 +44,7 @@ model:
 
 train:
   seed: 42
-  epochs: 2
+  epochs: 100
   batch_size: 16
   lr: 0.001
   mix_machine_types: False
