@@ -168,7 +168,7 @@ class AudioDataModule(LightningDataModule):
             self.dataset = dataset
 
         self.train_batch_sampler = MachineTypeBatchSampler(
-            dataset=dataset,
+            dataset=self.dataset,
             batch_size=self.batch_size,
             seed=self.seed,
             mix_machine_types=self.mix_machine_types,
