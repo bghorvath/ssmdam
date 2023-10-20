@@ -1,10 +1,12 @@
 import argparse
 import json
+import yaml
 from datetime import datetime
 import mlflow
 from acoustic_anomaly_detection.train import train
 from acoustic_anomaly_detection.test import test
 
+params = yaml.safe_load(open("params.yaml"))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -26,16 +28,11 @@ if __name__ == "__main__":
         default=None,
         help="MLflow run ID to continue logging to an existing run.",
     )
-    parser.add_argument(
-        "--experiment_name",
-        type=str,
-        default="Default",
-        help="Name of the MLflow experiment.",
-    )
 
     args = parser.parse_args()
 
-    mlflow.set_experiment(args.experiment_name)
+    experiment_name = "Test" if params["data"]["fast_dev_run"] else "Default"
+    mlflow.set_experiment(experiment_name)
 
     if args.all:
         args.train = True

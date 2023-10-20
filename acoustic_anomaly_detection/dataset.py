@@ -2,7 +2,7 @@ import os
 import random
 import yaml
 import torch
-from torch.utils.data import Dataset, DataLoader, random_split
+from torch.utils.data import Dataset, DataLoader, random_split, BatchSampler
 import torchaudio
 from torchaudio.transforms import MelSpectrogram, MFCC, Spectrogram, AmplitudeToDB
 from lightning.pytorch import LightningDataModule
@@ -160,7 +160,6 @@ class AudioDataModule(LightningDataModule):
             for data_path in data_paths
             for file in os.listdir(data_path)
         ]
-
         dataset = AudioDataset(file_list=file_list, fast_dev_run=self.fast_dev_run)
 
         if stage == "fit":
@@ -177,12 +176,16 @@ class AudioDataModule(LightningDataModule):
         )
 
     def train_dataloader(self):
+        batch_sampler = MachineTypeBatchSampler(
+            dataset=self.dataset,
+            batch_size=self.batch_size,
+            seed=self.seed,
+            mix_machine_types=self.mix_machine_types,
+        )
         dataloader = DataLoader(
             self.dataset,
-            batch_size=self.batch_size,
             num_workers=self.num_workers,
-            drop_last=True,
-            shuffle=True,
+            batch_sampler=batch_sampler,
         )
         return dataloader
 
@@ -205,5 +208,60 @@ class AudioDataModule(LightningDataModule):
         )
 
     def compute_input_size(self):
-        input_size = self.dataset[0][0].shape[1] * self.window_size
-        return input_size
+        return self.dataset[0][0].shape[1] * self.window_size
+
+
+class MachineTypeBatchSampler(BatchSampler):
+    def __init__(
+        self, dataset: Dataset, batch_size: int, seed: int, mix_machine_types: bool
+    ) -> None:
+        self.batch_size = batch_size
+        self.seed = seed
+        self.mix_machine_types = mix_machine_types
+
+        # Create shuffled index batches
+        self.batches = self._shuffled_index_batches(dataset=dataset)
+
+    def _shuffled_index_batches(self, dataset: Dataset) -> list[list[int]]:
+        # Group the indices by machine type
+        indices_by_type = {}
+        for idx, (_, attributes) in enumerate(dataset):
+            machine_type = attributes["machine_type"]
+            if machine_type not in indices_by_type:
+                indices_by_type[machine_type] = []
+            indices_by_type[machine_type].append(idx)
+
+        # Shuffle indices within each machine type group
+        for indices in indices_by_type.values():
+            random.shuffle(indices)
+
+        # Create batches of indices
+        batches = []
+        if self.mix_machine_types:
+            num_batches = len(dataset) // self.batch_size
+            last_index = num_batches * self.batch_size
+            all_indices = [
+                idx for indices in indices_by_type.values() for idx in indices
+            ]
+            batches = [
+                all_indices[i : i + self.batch_size]
+                for i in range(0, last_index, self.batch_size)
+            ]
+        else:
+            for machine_type, indices in indices_by_type.items():
+                num_batches = len(indices) // self.batch_size
+                for i in range(num_batches):
+                    batches.append(
+                        indices[i * self.batch_size : (i + 1) * self.batch_size]
+                    )
+
+        # Shuffle the batches
+        random.shuffle(batches)
+
+        return batches
+
+    def __iter__(self):
+        return iter(self.batches)
+
+    def __len__(self):
+        return len(self.batches)
