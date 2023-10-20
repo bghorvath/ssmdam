@@ -160,12 +160,13 @@ class AudioDataModule(LightningDataModule):
             for data_path in data_paths
             for file in os.listdir(data_path)
         ]
-        dataset = AudioDataset(file_list=file_list, fast_dev_run=self.fast_dev_run)
 
         if stage == "fit":
-            self.dataset, self.val_dataset = self.train_val_split(dataset)
+            self.dataset, self.val_dataset = self.train_val_split(file_list=file_list)
         elif stage == "test":
-            self.dataset = dataset
+            self.dataset = dataset = AudioDataset(
+                file_list=file_list, fast_dev_run=self.fast_dev_run
+            )
 
         self.train_batch_sampler = MachineTypeBatchSampler(
             dataset=self.dataset,
@@ -174,13 +175,19 @@ class AudioDataModule(LightningDataModule):
             mix_machine_types=self.mix_machine_types,
         )
 
-    def train_val_split(self, dataset: Dataset) -> tuple[Dataset, Dataset]:
-        generator = torch.Generator().manual_seed(self.seed)
-        train_size = int(len(dataset) * self.train_split)
-        val_size = len(dataset) - train_size
-        return random_split(
-            dataset=dataset, lengths=[train_size, val_size], generator=generator
+    def train_val_split(self, file_list: list) -> tuple[Dataset, Dataset]:
+        random.seed(self.seed)
+        random.shuffle(file_list)
+        train_size = int(len(file_list) * self.train_split)
+        train_file_list = file_list[:train_size]
+        val_file_list = file_list[train_size:]
+        train_dataset = AudioDataset(
+            file_list=train_file_list, fast_dev_run=self.fast_dev_run
         )
+        val_dataset = AudioDataset(
+            file_list=val_file_list, fast_dev_run=self.fast_dev_run
+        )
+        return train_dataset, val_dataset
 
     def train_dataloader(self):
         dataloader = DataLoader(
@@ -213,7 +220,7 @@ class AudioDataModule(LightningDataModule):
 
     def reshuffle_train_batches(self) -> None:
         self.seed += 1
-        self.train_batch_sampler.shuffle_batches(dataset=self.dataset, seed=self.seed)
+        self.train_batch_sampler.shuffle_batches(seed=self.seed)
 
 
 class MachineTypeBatchSampler(BatchSampler):
@@ -233,7 +240,7 @@ class MachineTypeBatchSampler(BatchSampler):
                 self.indices_by_type[machine_type] = []
             self.indices_by_type[machine_type].append(idx)
 
-        self.shuffle_batches(dataset=dataset, seed=seed)
+        self.shuffle_batches(seed=seed)
 
     # Create shuffled index batches
     def shuffle_batches(self, seed: int) -> None:
