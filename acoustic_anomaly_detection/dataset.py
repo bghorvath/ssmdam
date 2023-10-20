@@ -223,6 +223,7 @@ class MachineTypeBatchSampler(BatchSampler):
         self.batches = self._shuffled_index_batches(dataset=dataset)
 
     def _shuffled_index_batches(self, dataset: Dataset) -> list[list[int]]:
+        random.seed(self.seed)
         # Group the indices by machine type
         indices_by_type = {}
         for idx, (_, attributes) in enumerate(dataset):
