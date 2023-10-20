@@ -46,6 +46,11 @@ class Model(pl.LightningModule):
         )
         return loss
 
+    def on_train_epoch_start(self) -> None:
+        # Reshuffle the batches of the training dataloader
+        if self.current_epoch > 0:
+            self.trainer.datamodule.reshuffle_train_batches()
+
     def validation_step(
         self, batch: tuple[torch.Tensor, dict[str, str]], batch_idx: int
     ) -> torch.Tensor:

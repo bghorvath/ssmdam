@@ -167,6 +167,13 @@ class AudioDataModule(LightningDataModule):
         elif stage == "test":
             self.dataset = dataset
 
+        self.train_batch_sampler = MachineTypeBatchSampler(
+            dataset=dataset,
+            batch_size=self.batch_size,
+            seed=self.seed,
+            mix_machine_types=self.mix_machine_types,
+        )
+
     def train_val_split(self, dataset: Dataset) -> tuple[Dataset, Dataset]:
         generator = torch.Generator().manual_seed(self.seed)
         train_size = int(len(dataset) * self.train_split)
@@ -176,16 +183,10 @@ class AudioDataModule(LightningDataModule):
         )
 
     def train_dataloader(self):
-        batch_sampler = MachineTypeBatchSampler(
-            dataset=self.dataset,
-            batch_size=self.batch_size,
-            seed=self.seed,
-            mix_machine_types=self.mix_machine_types,
-        )
         dataloader = DataLoader(
             self.dataset,
             num_workers=self.num_workers,
-            batch_sampler=batch_sampler,
+            batch_sampler=self.train_batch_sampler,
         )
         return dataloader
 
@@ -210,20 +211,23 @@ class AudioDataModule(LightningDataModule):
     def compute_input_size(self):
         return self.dataset[0][0].shape[1] * self.window_size
 
+    def reshuffle_train_batches(self) -> None:
+        self.seed += 1
+        self.train_batch_sampler.shuffle_batches(dataset=self.dataset, seed=self.seed)
+
 
 class MachineTypeBatchSampler(BatchSampler):
     def __init__(
         self, dataset: Dataset, batch_size: int, seed: int, mix_machine_types: bool
     ) -> None:
         self.batch_size = batch_size
-        self.seed = seed
         self.mix_machine_types = mix_machine_types
 
-        # Create shuffled index batches
-        self.batches = self._shuffled_index_batches(dataset=dataset)
+        self.shuffle_batches(dataset=dataset, seed=seed)
 
-    def _shuffled_index_batches(self, dataset: Dataset) -> list[list[int]]:
-        random.seed(self.seed)
+    # Create shuffled index batches
+    def shuffle_batches(self, dataset: Dataset, seed: int) -> None:
+        random.seed(seed)
         # Group the indices by machine type
         indices_by_type = {}
         for idx, (_, attributes) in enumerate(dataset):
@@ -259,7 +263,7 @@ class MachineTypeBatchSampler(BatchSampler):
         # Shuffle the batches
         random.shuffle(batches)
 
-        return batches
+        self.batches = batches
 
     def __iter__(self):
         return iter(self.batches)
