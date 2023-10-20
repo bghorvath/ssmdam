@@ -223,37 +223,40 @@ class MachineTypeBatchSampler(BatchSampler):
         self.batch_size = batch_size
         self.mix_machine_types = mix_machine_types
 
+        self.dataset_length = len(dataset)
+
+        # Group the indices by machine type
+        self.indices_by_type = {}
+        for idx, attributes in enumerate(dataset.attributes_list):
+            machine_type = attributes["machine_type"]
+            if machine_type not in self.indices_by_type:
+                self.indices_by_type[machine_type] = []
+            self.indices_by_type[machine_type].append(idx)
+
         self.shuffle_batches(dataset=dataset, seed=seed)
 
     # Create shuffled index batches
-    def shuffle_batches(self, dataset: Dataset, seed: int) -> None:
+    def shuffle_batches(self, seed: int) -> None:
         random.seed(seed)
-        # Group the indices by machine type
-        indices_by_type = {}
-        for idx, (_, attributes) in enumerate(dataset):
-            machine_type = attributes["machine_type"]
-            if machine_type not in indices_by_type:
-                indices_by_type[machine_type] = []
-            indices_by_type[machine_type].append(idx)
 
         # Shuffle indices within each machine type group
-        for indices in indices_by_type.values():
+        for indices in self.indices_by_type.values():
             random.shuffle(indices)
 
         # Create batches of indices
         batches = []
         if self.mix_machine_types:
-            num_batches = len(dataset) // self.batch_size
+            num_batches = self.dataset_length // self.batch_size
             last_index = num_batches * self.batch_size
             all_indices = [
-                idx for indices in indices_by_type.values() for idx in indices
+                idx for indices in self.indices_by_type.values() for idx in indices
             ]
             batches = [
                 all_indices[i : i + self.batch_size]
                 for i in range(0, last_index, self.batch_size)
             ]
         else:
-            for machine_type, indices in indices_by_type.items():
+            for machine_type, indices in self.indices_by_type.items():
                 num_batches = len(indices) // self.batch_size
                 for i in range(num_batches):
                     batches.append(
