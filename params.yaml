@@ -1,7 +1,3 @@
-misc:
-  num_workers: 8
-  run_dir: mlruns
-
 data:
   train_split: 0.8
   fast_dev_run: False
@@ -26,8 +22,19 @@ transform:
     # mfcc params
     n_mfcc: 40
 
-model:
-  type: baseline_ae
+train:
+  run_dir: mlruns
+  num_workers: 8
+  seed: 42
+  epochs: 100
+  batch_size: 16
+  mix_machine_types: False
+  model: baseline_ae
+
+baseline_ae:
+  # model params
+  loss: mse
+  lr: 0.001
   layers:
     encoder:
       - 128
@@ -41,10 +48,3 @@ model:
       - 128
       - 128
       - 128
-
-train:
-  seed: 42
-  epochs: 100
-  batch_size: 16
-  lr: 0.001
-  mix_machine_types: False

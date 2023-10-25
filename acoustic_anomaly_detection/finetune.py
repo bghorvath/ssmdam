@@ -12,9 +12,9 @@ def finetune(run_id: str):
     params = yaml.safe_load(open("params.yaml"))
 
     epochs = params["train"]["epochs"]
-    num_workers = params["misc"]["num_workers"]
+    num_workers = params["train"]["num_workers"]
     data_sources = params["data"]["data_sources"]
-    run_dir = params["misc"]["run_dir"]
+    run_dir = params["train"]["run_dir"]
     fast_dev_run = params["data"]["fast_dev_run"]
 
     with mlflow.start_run(run_id=run_id) as mlrun:

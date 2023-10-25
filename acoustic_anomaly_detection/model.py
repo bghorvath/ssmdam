@@ -1,4 +1,5 @@
 import yaml
+from collections import defaultdict
 import torch
 from torch import nn
 import lightning.pytorch as pl
@@ -11,17 +12,19 @@ params = yaml.safe_load(open("params.yaml"))
 
 
 def get_model(input_size: int) -> pl.LightningModule:
-    model_type = params["model"]["type"]
-    model = {
+    model = params["train"]["model"]
+    model_cls = {
         "simple_ae": SimpleAE,
         "baseline_ae": BaselineAE,
-    }[model_type]
-    return model(input_size=input_size)
+    }[model]
+    return model_cls(input_size=input_size)
 
 
 class Model(pl.LightningModule):
     def __init__(self, input_size: int):
         super().__init__()
+        self.model = params["train"]["model"]
+        self.loss = params[self.model]["loss"]
         self.input_size = input_size
         self.init_transformer()
 
@@ -35,7 +38,7 @@ class Model(pl.LightningModule):
         machine_type = attributes["machine_type"]
         x = self.transform(x)
         x_hat = self(x)
-        loss = nn.functional.mse_loss(x_hat, x)
+        loss = self.loss_fn(x, x_hat, attributes)
         self.log(
             "train_loss",
             loss,
@@ -43,6 +46,7 @@ class Model(pl.LightningModule):
             on_epoch=True,
             prog_bar=True,
             logger=True,
+            batch_size=x.shape[0],
         )
         return loss
 
@@ -59,7 +63,7 @@ class Model(pl.LightningModule):
         label = attributes["label"][0]
         x = self.transform(x)
         x_hat = self(x)
-        loss = nn.functional.mse_loss(x_hat, x)
+        loss = self.loss_fn(x, x_hat, attributes)
 
         if machine_type not in self.val_error_scores:
             self.val_error_scores[machine_type] = []
@@ -76,6 +80,7 @@ class Model(pl.LightningModule):
             on_epoch=True,
             prog_bar=True,
             logger=True,
+            batch_size=x.shape[0],
         )
         return loss
 
@@ -101,21 +106,17 @@ class Model(pl.LightningModule):
         x, attributes = batch
         label = attributes["label"][0]
         machine_type = attributes["machine_type"][0]
+        y = 1 if label == "anomaly" else 0
+
         x = self.transform(x)
         x_hat = self(x)
-        error_score = torch.mean(torch.square(x_hat - x))
-
-        if machine_type not in self.test_error_scores:
-            self.test_error_scores[machine_type] = []
-            self.test_ys[machine_type] = []
-
+        error_score = self.calculate_error_score(x, x_hat, attributes)
         self.test_error_scores[machine_type].append(error_score.item())
-        y = 1 if label == "anomaly" else 0
         self.test_ys[machine_type].append(y)
 
     def on_test_epoch_start(self) -> None:
-        self.test_error_scores = {}
-        self.test_ys = {}
+        self.test_error_scores = defaultdict(list)
+        self.test_ys = defaultdict(list)
 
     def on_test_epoch_end(self) -> None:
         for machine_type, error_score in self.test_error_scores.items():
@@ -136,7 +137,7 @@ class Model(pl.LightningModule):
         machine_type = attributes["machine_type"][0]
         x = self.transform(x)
         x_hat = self(x)
-        error_score = torch.mean(torch.square(x_hat - x))
+        error_score = self.calculate_error_score(x, x_hat, attributes)
 
         if machine_type not in self.test_error_scores:
             self.test_error_scores[machine_type] = []
@@ -154,10 +155,23 @@ class Model(pl.LightningModule):
         for param in self.encoder.parameters():
             param.requires_grad = False
 
+    def loss_fn(
+        self, x: torch.Tensor, y: torch.Tensor, attributes: dict
+    ) -> torch.Tensor:
+        if self.loss == "mse":
+            return nn.MSELoss()(x, y)
+        elif self.loss == "cross_entropy":
+            return nn.CrossEntropyLoss()(y, attributes)
+
+    def calculate_error_score(
+        self, x: torch.Tensor, x_hat: torch.Tensor, attributes: dict
+    ) -> torch.Tensor:
+        return self.loss_fn(x, x_hat, attributes)
+
     def configure_optimizers(self) -> torch.optim.Optimizer:
         return torch.optim.Adam(
             filter(lambda p: p.requires_grad, self.parameters()),
-            lr=params["train"]["lr"],
+            lr=params[self.model]["lr"],
         )
 
     def transform(self, x: torch.Tensor) -> torch.Tensor:
@@ -177,8 +191,8 @@ class Model(pl.LightningModule):
 class SimpleAE(Model):
     def __init__(self, input_size: int) -> None:
         super().__init__(input_size)
-        self.encoder_layers = params["model"]["layers"]["encoder"]
-        self.decoder_layers = params["model"]["layers"]["decoder"]
+        self.encoder_layers = params[self.model]["layers"]["encoder"]
+        self.decoder_layers = params[self.model]["layers"]["decoder"]
         self.save_hyperparameters()
         self.encoder = nn.Sequential(
             nn.Linear(self.input_size, self.encoder_layers[0]),
@@ -209,8 +223,8 @@ class BaselineAE(Model):
 
     def __init__(self, input_size: int) -> None:
         super().__init__(input_size)
-        self.encoder_layers = params["model"]["layers"]["encoder"]
-        self.decoder_layers = params["model"]["layers"]["decoder"]
+        self.encoder_layers = params[self.model]["layers"]["encoder"]
+        self.decoder_layers = params[self.model]["layers"]["decoder"]
         self.save_hyperparameters()
         self.encoder = nn.Sequential(
             nn.Linear(self.input_size, self.encoder_layers[0]),

@@ -141,7 +141,7 @@ class AudioDataModule(LightningDataModule):
         self.fast_dev_run = params["data"]["fast_dev_run"]
         self.train_split = params["data"]["train_split"]
         self.batch_size = params["train"]["batch_size"]
-        self.num_workers = params["misc"]["num_workers"]
+        self.num_workers = params["train"]["num_workers"]
         self.mix_machine_types = params["train"]["mix_machine_types"]
         self.window_size = params["transform"]["params"]["window_size"]
         self.seed = params["train"]["seed"]

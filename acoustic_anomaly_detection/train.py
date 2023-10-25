@@ -12,7 +12,7 @@ def train(run_id: str):
     params = yaml.safe_load(open("params.yaml"))
 
     epochs = params["train"]["epochs"]
-    run_dir = params["misc"]["run_dir"]
+    run_dir = params["train"]["run_dir"]
 
     with mlflow.start_run(run_id=run_id) as mlrun:
         experiment_id = mlrun.info.experiment_id
