@@ -130,27 +130,6 @@ class Model(pl.LightningModule):
             self.log(f"{machine_type}_auroc_epoch", auroc, prog_bar=True, logger=True)
             self.log(f"{machine_type}_auprc_epoch", auprc, prog_bar=True, logger=True)
 
-    def predict_step(
-        self, batch: tuple[torch.Tensor, dict[str, str]], batch_idx: int
-    ) -> None:
-        x, attributes = batch
-        machine_type = attributes["machine_type"][0]
-        x = self.transform(x)
-        x_hat = self(x)
-        error_score = self.calculate_error_score(x, x_hat, attributes)
-
-        if machine_type not in self.test_error_scores:
-            self.test_error_scores[machine_type] = []
-
-        self.test_error_scores[machine_type].append(error_score.item())
-
-    def on_predict_epoch_start(self) -> None:
-        self.test_error_scores = {}
-
-    def on_predict_epoch_end(self) -> None:
-        for machine_type, error_score in self.test_error_scores.items():
-            error_score = torch.tensor(error_score)
-
     def freeze_encoder(self):
         for param in self.encoder.parameters():
             param.requires_grad = False

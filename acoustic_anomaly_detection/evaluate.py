@@ -32,7 +32,7 @@ def evaluate(run_id: str):
 
         trainer = Trainer(logger=logger)
 
-        trainer.predict(
+        trainer.test(
             model=model,
             datamodule=data_module,
             ckpt_path=ckpt_path,
