@@ -5,6 +5,8 @@ from datetime import datetime
 import mlflow
 from acoustic_anomaly_detection.train import train
 from acoustic_anomaly_detection.test import test
+from acoustic_anomaly_detection.finetune import finetune
+from acoustic_anomaly_detection.evaluate import evaluate
 
 params = yaml.safe_load(open("params.yaml"))
 
@@ -61,8 +63,8 @@ if __name__ == "__main__":
     if args.test:
         test(run_id)
 
-    # if args.finetune:
-    #     finetune(run_id)
+    if args.finetune:
+        finetune(run_id)
 
-    # if args.evaluate:
-    #     evaluate(run_id)
+    if args.evaluate:
+        evaluate(run_id)

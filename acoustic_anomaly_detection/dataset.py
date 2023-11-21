@@ -14,6 +14,31 @@ from acoustic_anomaly_detection.utils import get_attributes
 params = yaml.safe_load(open("params.yaml"))
 
 
+def get_file_list(stage: str) -> list or tuple[str, list]:
+    data_sources = params["data"]["data_sources"]
+    dev_eval = "dev" if stage in ("fit", "test") else "eval"
+    train_test = "train" if stage in ("fit", "finetune") else "test"
+    data_paths = [
+        os.path.join("data", data_source, dev_eval, data_dir, train_test)
+        for data_source in data_sources
+        for data_dir in os.listdir(os.path.join("data", data_source, dev_eval))
+    ]
+    if dev_eval == "eval":
+        for data_path in data_paths:
+            machine_type = data_path.split("/")[-2]
+            file_paths = [
+                os.path.join(data_path, file) for file in os.listdir(data_path)
+            ]
+            yield machine_type, file_paths
+    else:
+        file_list = [
+            os.path.join(data_path, file)
+            for data_path in data_paths
+            for file in os.listdir(data_path)
+        ]
+        return file_list
+
+
 class ASTProcessor(torch.nn.Module):
     """
     Audio Spectrogram Transformer AutoEncoder
@@ -39,11 +64,10 @@ class AudioDataset(Dataset):
     def __init__(
         self,
         file_list: list,
-        fast_dev_run: bool = False,
     ) -> None:
         self.file_list = file_list
+        self.fast_dev_run = params["data"]["fast_dev_run"]
         self.seed = params["train"]["seed"]
-        self.data_sources = params["data"]["data_sources"]
         self.transform_type = params["transform"]["type"]
         self.segment = params["transform"]["segment"]
         self.sr = params["transform"]["params"]["sr"]
@@ -63,7 +87,7 @@ class AudioDataset(Dataset):
         }
         self.transform_func = self.transform_func(**transform_params)
 
-        if fast_dev_run:
+        if self.fast_dev_run:
             random.seed(self.seed)
             self.file_list = random.sample(self.file_list, 100)
 
@@ -138,35 +162,19 @@ class AudioDataset(Dataset):
 class AudioDataModule(LightningDataModule):
     def __init__(self):
         super().__init__()
-        self.fast_dev_run = params["data"]["fast_dev_run"]
         self.train_split = params["data"]["train_split"]
         self.batch_size = params["train"]["batch_size"]
         self.num_workers = params["train"]["num_workers"]
         self.mix_machine_types = params["train"]["mix_machine_types"]
         self.window_size = params["transform"]["params"]["window_size"]
         self.seed = params["train"]["seed"]
-        self.data_sources = params["data"]["data_sources"]
 
-    def setup(self, stage=None):
-        dev_eval = "dev" if stage in ("fit", "test") else "eval"
-        train_test = "train" if stage in ("fit", "finetune") else "test"
-        data_paths = [
-            os.path.join("data", data_source, dev_eval, data_dir, train_test)
-            for data_source in self.data_sources
-            for data_dir in os.listdir(os.path.join("data", data_source, dev_eval))
-        ]
-        file_list = [
-            os.path.join(data_path, file)
-            for data_path in data_paths
-            for file in os.listdir(data_path)
-        ]
-
-        if stage == "fit":
+    def setup(self, file_list: list):
+        train_test = file_list[0].split("/")[-2]
+        if train_test == "train":
             self.dataset, self.val_dataset = self.train_val_split(file_list=file_list)
-        elif stage == "test":
-            self.dataset = dataset = AudioDataset(
-                file_list=file_list, fast_dev_run=self.fast_dev_run
-            )
+        else:
+            self.dataset = AudioDataset(file_list=file_list)
 
         self.train_batch_sampler = MachineTypeBatchSampler(
             dataset=self.dataset,
@@ -181,12 +189,8 @@ class AudioDataModule(LightningDataModule):
         train_size = int(len(file_list) * self.train_split)
         train_file_list = file_list[:train_size]
         val_file_list = file_list[train_size:]
-        train_dataset = AudioDataset(
-            file_list=train_file_list, fast_dev_run=self.fast_dev_run
-        )
-        val_dataset = AudioDataset(
-            file_list=val_file_list, fast_dev_run=self.fast_dev_run
-        )
+        train_dataset = AudioDataset(file_list=train_file_list)
+        val_dataset = AudioDataset(file_list=val_file_list)
         return train_dataset, val_dataset
 
     def train_dataloader(self):
