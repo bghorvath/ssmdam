@@ -36,7 +36,7 @@ def get_file_list(stage: str) -> list or tuple[str, list]:
             for data_path in data_paths
             for file in os.listdir(data_path)
         ]
-        return file_list
+        yield file_list
 
 
 class ASTProcessor(torch.nn.Module):
@@ -160,7 +160,7 @@ class AudioDataset(Dataset):
 
 
 class AudioDataModule(LightningDataModule):
-    def __init__(self):
+    def __init__(self, file_list: list) -> None:
         super().__init__()
         self.train_split = params["data"]["train_split"]
         self.batch_size = params["train"]["batch_size"]
@@ -168,13 +168,16 @@ class AudioDataModule(LightningDataModule):
         self.mix_machine_types = params["train"]["mix_machine_types"]
         self.window_size = params["transform"]["params"]["window_size"]
         self.seed = params["train"]["seed"]
+        self.file_list = file_list
 
-    def setup(self, file_list: list):
-        train_test = file_list[0].split("/")[-2]
+    def setup(self, stage: str = None) -> None:
+        train_test = "train" if stage in ("fit", "finetune") else "test"
         if train_test == "train":
-            self.dataset, self.val_dataset = self.train_val_split(file_list=file_list)
+            self.dataset, self.val_dataset = self.train_val_split(
+                file_list=self.file_list
+            )
         else:
-            self.dataset = AudioDataset(file_list=file_list)
+            self.dataset = AudioDataset(file_list=self.file_list)
 
         self.train_batch_sampler = MachineTypeBatchSampler(
             dataset=self.dataset,

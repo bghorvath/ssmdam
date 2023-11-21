@@ -40,21 +40,21 @@ if __name__ == "__main__":
         args.evaluate = True
 
     if not args.run_id:
-        experiment_name = "Test" if params["data"]["fast_dev_run"] else "Default"
-        mlflow.set_experiment(experiment_name)
         if not args.train:
             raise ValueError(
                 "Either specify run_id to resume run, or specify --train to start a new run."
             )
+        experiment_name = "Test" if params["data"]["fast_dev_run"] else "Default"
+        mlflow.set_experiment(experiment_name)
 
         run_name = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with mlflow.start_run(run_name=run_name) as mlrun:
             run_id = mlrun.info.run_id
             print(f"Started run with ID: {run_id}")
     else:
-        run_id = args.run_id
-        if mlflow.get_run(run_id) is None:
+        if mlflow.get_run(args.run_id) is None:
             raise ValueError(f"Run with ID {run_id} not found.")
+        run_id = args.run_id
         print(f"Resuming run with ID: {run_id}")
 
     if args.train:

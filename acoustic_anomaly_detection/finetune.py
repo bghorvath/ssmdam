@@ -1,5 +1,6 @@
 import os
 import yaml
+from tqdm import tqdm
 from lightning import Trainer
 from lightning.pytorch.callbacks import ModelCheckpoint
 from lightning.pytorch.loggers import MLFlowLogger
@@ -10,12 +11,8 @@ from acoustic_anomaly_detection.model import get_model
 
 def finetune(run_id: str):
     params = yaml.safe_load(open("params.yaml"))
-
-    epochs = params["train"]["epochs"]
-    num_workers = params["train"]["num_workers"]
-    data_sources = params["data"]["data_sources"]
     run_dir = params["train"]["run_dir"]
-    fast_dev_run = params["data"]["fast_dev_run"]
+    epochs = params["train"]["epochs"]
 
     with mlflow.start_run(run_id=run_id) as mlrun:
         experiment_id = mlrun.info.experiment_id
@@ -27,14 +24,11 @@ def finetune(run_id: str):
 
         logger = MLFlowLogger(run_id=run_id)
 
-        data_module = AudioDataModule()
         file_lists_iter = get_file_list(stage="finetune")
 
-        for i, (machine_type, file_list) in enumerate(file_lists_iter):
-            print(
-                f"Finetuning on machine type {machine_type} ({i+1}/{len(data_sources)})"
-            )
-            data_module.setup(file_list=file_list)
+        for machine_type, file_list in tqdm(file_lists_iter):
+            data_module = AudioDataModule(file_list=file_list)
+            data_module.setup(stage="finetune")
             input_size = data_module.compute_input_size()
 
             model = get_model(input_size=input_size)
@@ -42,19 +36,20 @@ def finetune(run_id: str):
             model.freeze_encoder()
 
             checkpoint_callback = ModelCheckpoint(
-                dirpath=finetune_ckpt_dir,
-                filename=f"{machine_type}_best",
+                dirpath=os.path.join(finetune_ckpt_dir, machine_type),
                 monitor="val_loss",
                 mode="min",
+                filename="best",
                 save_top_k=1,
+                save_last=True,
+                verbose=True,
             )
 
             trainer = Trainer(
+                log_every_n_steps=1,
                 logger=logger,
-                callbacks=[checkpoint_callback],
                 max_epochs=epochs,
-                num_workers=num_workers,
-                fast_dev_run=fast_dev_run,
+                callbacks=[checkpoint_callback],
             )
 
             trainer.fit(
