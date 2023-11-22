@@ -1,3 +1,4 @@
+import os
 import argparse
 import json
 import yaml
@@ -9,6 +10,24 @@ from acoustic_anomaly_detection.finetune import finetune
 from acoustic_anomaly_detection.evaluate import evaluate
 
 params = yaml.safe_load(open("params.yaml"))
+
+
+def get_run_id(run_id: str) -> str:
+    all_experiments = [exp.experiment_id for exp in mlflow.search_experiments()]
+    filter_string = f'attributes.`run_id` ILIKE "{run_id}%"'
+    runs = mlflow.MlflowClient().search_runs(
+        experiment_ids=all_experiments, filter_string=filter_string
+    )
+    if len(runs) == 0:
+        raise ValueError(f"Run with ID {run_id} not found.")
+    elif len(runs) == 1:
+        return runs[0].info.run_id
+    else:
+        run_ids = [run.info.run_id for run in runs]
+        raise ValueError(
+            f"Multiple runs found with ID {run_id}. Please specify one of: {run_ids}"
+        )
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -52,9 +71,7 @@ if __name__ == "__main__":
             run_id = mlrun.info.run_id
             print(f"Started run with ID: {run_id}")
     else:
-        if mlflow.get_run(args.run_id) is None:
-            raise ValueError(f"Run with ID {run_id} not found.")
-        run_id = args.run_id
+        run_id = get_run_id(args.run_id)
         print(f"Resuming run with ID: {run_id}")
 
     if args.train:
