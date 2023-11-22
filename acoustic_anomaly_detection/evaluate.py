@@ -22,6 +22,7 @@ def evaluate(run_id: str):
 
         file_list_iter = get_file_list(stage="evaluate")
 
+        metrics_dict = {}
         for machine_type, file_list in tqdm(file_list_iter):
             ckpt_path = os.path.join(ckpt_root_dir, machine_type, "best.ckpt")
             if not os.path.exists(ckpt_path):
@@ -40,6 +41,6 @@ def evaluate(run_id: str):
                 datamodule=data_module,
                 ckpt_path=ckpt_path,
             )
+            metrics_dict.update(trainer.model.performance_metrics)
 
-        metrics_dict = trainer.model.performance_metrics
         save_metrics(metrics_dict, artifacts_dir, "evaluate")
