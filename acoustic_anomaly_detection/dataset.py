@@ -171,12 +171,11 @@ class AudioDataModule(LightningDataModule):
         self.file_list = file_list
 
     def setup(self, stage: str = None) -> None:
-        train_test = "train" if stage in ("fit", "finetune") else "test"
-        if train_test == "train":
+        if stage == "fit":
             self.dataset, self.val_dataset = self.train_val_split(
                 file_list=self.file_list
             )
-        else:
+        elif stage == "test":
             self.dataset = AudioDataset(file_list=self.file_list)
 
         self.train_batch_sampler = MachineTypeBatchSampler(

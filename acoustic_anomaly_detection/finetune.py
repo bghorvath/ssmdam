@@ -24,13 +24,12 @@ def finetune(run_id: str):
 
         logger = MLFlowLogger(run_id=run_id)
 
-        file_lists_iter = get_file_list(stage="finetune")
+        file_lists_iter = get_file_list("finetune")
 
         for machine_type, file_list in tqdm(file_lists_iter):
             data_module = AudioDataModule(file_list=file_list)
-            data_module.setup(stage="finetune")
+            data_module.setup(stage="fit")
             input_size = data_module.compute_input_size()
-
             finetune_ckpt_dir = os.path.join(finetune_ckpt_root_dir, machine_type)
 
             model = get_model(input_size=input_size)

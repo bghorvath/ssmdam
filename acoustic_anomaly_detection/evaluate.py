@@ -20,7 +20,7 @@ def evaluate(run_id: str):
 
         logger = MLFlowLogger(run_id=run_id)
 
-        file_list_iter = get_file_list(stage="evaluate")
+        file_list_iter = get_file_list("evaluate")
 
         metrics_dict = {}
         for machine_type, file_list in tqdm(file_list_iter):
@@ -30,7 +30,7 @@ def evaluate(run_id: str):
                 continue
 
             data_module = AudioDataModule(file_list=file_list)
-            data_module.setup(stage="evaluate")
+            data_module.setup(stage="test")
             input_size = data_module.compute_input_size()
             model = get_model(input_size=input_size)
 

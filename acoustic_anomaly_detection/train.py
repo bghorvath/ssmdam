@@ -20,10 +20,9 @@ def train(run_id: str):
         )
         ckpt_path = os.path.join(ckpt_dir, "last.ckpt")
 
-        file_list = next(get_file_list(stage="fit"))
+        file_list = next(get_file_list("fit"))
         data_module = AudioDataModule(file_list=file_list)
         data_module.setup(stage="fit")
-
         input_size = data_module.compute_input_size()
         model = get_model(input_size=input_size)
 
