@@ -1,7 +1,11 @@
 import os
 import yaml
-import torch
 import json
+import sys
+import numpy as np
+import pandas as pd
+from scipy import stats
+import torch
 import mlflow
 
 params = yaml.safe_load(open("params.yaml"))
@@ -81,3 +85,37 @@ def reconstruct_signal(sliced_tensor: torch.Tensor, batch_size: int) -> torch.Te
     reconstructed = torch.cat([left_values, center_values, right_values], dim=1)
 
     return reconstructed
+
+
+def save_metrics(metrics_dict: dict, artifacts_dir: str, stage: str):
+    """
+    Saves metrics to a JSON file.
+    """
+    metrics_array = np.array(list(metrics_dict.values()))
+    metrics_dict["Arithmetic mean"] = np.mean(metrics_array, axis=0)
+    metrics_dict["Harmonic mean"] = stats.hmean(
+        np.maximum(metrics_array, sys.float_info.epsilon), axis=0
+    )
+
+    df_cols = (
+        ["AUC", "pAUC", "Precision", "Recall", "F1"]
+        + [
+            "AUC (source)",
+            "pAUC (source)",
+            "Precision (source)",
+            "Recall (source)",
+            "F1 (source)",
+        ]
+        + [
+            "AUC (target)",
+            "pAUC (target)",
+            "Precision (target)",
+            "Recall (target)",
+            "F1 (target)",
+        ]
+    )
+
+    metrics_df = pd.DataFrame.from_dict(metrics_dict, orient="index", columns=df_cols)
+    metrics_df.index.name = "Machine type"
+    metrics_df.reset_index(inplace=True)
+    metrics_df.to_csv(os.path.join(artifacts_dir, f"{stage}_metrics.csv"), index=False)

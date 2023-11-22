@@ -20,7 +20,7 @@ def finetune(run_id: str):
             run_dir, experiment_id, run_id, "artifacts", "checkpoints"
         )
         train_ckpt_path = os.path.join(ckpt_dir, "train", "best.ckpt")
-        finetune_ckpt_dir = os.path.join(ckpt_dir, "finetune")
+        finetune_ckpt_root_dir = os.path.join(ckpt_dir, "finetune")
 
         logger = MLFlowLogger(run_id=run_id)
 
@@ -31,12 +31,15 @@ def finetune(run_id: str):
             data_module.setup(stage="finetune")
             input_size = data_module.compute_input_size()
 
+            finetune_ckpt_dir = os.path.join(finetune_ckpt_root_dir, machine_type)
+
             model = get_model(input_size=input_size)
-            model.load_from_checkpoint(train_ckpt_path)
+            if not os.path.exists(finetune_ckpt_dir):
+                model.load_from_checkpoint(train_ckpt_path)
             model.freeze_encoder()
 
             checkpoint_callback = ModelCheckpoint(
-                dirpath=os.path.join(finetune_ckpt_dir, machine_type),
+                dirpath=finetune_ckpt_dir,
                 monitor="val_loss",
                 mode="min",
                 filename="best",
@@ -55,4 +58,5 @@ def finetune(run_id: str):
             trainer.fit(
                 model=model,
                 datamodule=data_module,
+                ckpt_path="last" if os.path.exists(finetune_ckpt_dir) else None,
             )

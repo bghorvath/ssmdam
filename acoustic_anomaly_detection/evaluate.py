@@ -6,6 +6,7 @@ from lightning.pytorch.loggers import MLFlowLogger
 import mlflow
 from acoustic_anomaly_detection.dataset import AudioDataModule, get_file_list
 from acoustic_anomaly_detection.model import get_model
+from acoustic_anomaly_detection.utils import save_metrics
 
 
 def evaluate(run_id: str):
@@ -14,29 +15,31 @@ def evaluate(run_id: str):
 
     with mlflow.start_run(run_id=run_id) as mlrun:
         experiment_id = mlrun.info.experiment_id
-        ckpt_dir = os.path.join(
-            run_dir, experiment_id, run_id, "artifacts", "checkpoints", "finetune"
-        )
+        artifacts_dir = os.path.join(run_dir, experiment_id, run_id, "artifacts")
+        ckpt_root_dir = os.path.join(artifacts_dir, "checkpoints", "finetune")
 
         logger = MLFlowLogger(run_id=run_id)
 
         file_list_iter = get_file_list(stage="evaluate")
 
         for machine_type, file_list in tqdm(file_list_iter):
-            data_module = AudioDataModule(file_list=file_list)
-            data_module.setup(stage="evaluate")
-            input_size = data_module.compute_input_size()
-
-            model = get_model(input_size=input_size)
-            ckpt_path = os.path.join(ckpt_dir, machine_type, "best.ckpt")
+            ckpt_path = os.path.join(ckpt_root_dir, machine_type, "best.ckpt")
             if not os.path.exists(ckpt_path):
                 print(f"Checkpoint {ckpt_path} does not exist. Skipping.")
                 continue
-            model.load_from_checkpoint(ckpt_path)
+
+            data_module = AudioDataModule(file_list=file_list)
+            data_module.setup(stage="evaluate")
+            input_size = data_module.compute_input_size()
+            model = get_model(input_size=input_size)
 
             trainer = Trainer(logger=logger)
 
             trainer.test(
                 model=model,
                 datamodule=data_module,
+                ckpt_path=ckpt_path,
             )
+
+        metrics_dict = trainer.model.performance_metrics
+        save_metrics(metrics_dict, artifacts_dir, "evaluate")

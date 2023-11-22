@@ -5,6 +5,7 @@ from lightning.pytorch.loggers import MLFlowLogger
 import mlflow
 from acoustic_anomaly_detection.dataset import AudioDataModule, get_file_list
 from acoustic_anomaly_detection.model import get_model
+from acoustic_anomaly_detection.utils import save_metrics
 
 
 def test(run_id: str):
@@ -13,9 +14,8 @@ def test(run_id: str):
 
     with mlflow.start_run(run_id=run_id) as mlrun:
         experiment_id = mlrun.info.experiment_id
-        ckpt_dir = os.path.join(
-            run_dir, experiment_id, run_id, "artifacts", "checkpoints", "train"
-        )
+        artifacts_dir = os.path.join(run_dir, experiment_id, run_id, "artifacts")
+        ckpt_dir = os.path.join(artifacts_dir, "checkpoints", "train")
         ckpt_path = os.path.join(ckpt_dir, "best.ckpt")
 
         file_list = next(get_file_list(stage="test"))
@@ -34,3 +34,6 @@ def test(run_id: str):
             datamodule=data_module,
             ckpt_path=ckpt_path,
         )
+
+    metrics_dict = trainer.model.performance_metrics
+    save_metrics(metrics_dict, artifacts_dir, "test")

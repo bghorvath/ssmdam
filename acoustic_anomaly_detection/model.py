@@ -1,9 +1,15 @@
-import yaml
 from collections import defaultdict
+import yaml
+import numpy as np
 import torch
 from torch import nn
+from torchmetrics.functional.classification import (
+    binary_auroc,
+    binary_precision,
+    binary_recall,
+    binary_f1_score,
+)
 import lightning.pytorch as pl
-from torcheval.metrics.functional import binary_auroc, binary_auprc
 from transformers import ASTModel
 
 from acoustic_anomaly_detection.utils import slice_signal, reconstruct_signal
@@ -24,7 +30,10 @@ class Model(pl.LightningModule):
     def __init__(self, input_size: int):
         super().__init__()
         self.model = params["train"]["model"]
+        self.max_fpr = params["classification"]["max_fpr"]
+        self.decision_threshold = params["classification"]["decision_threshold"]
         self.loss = params[self.model]["loss"]
+        self.lr = params[self.model]["lr"]
         self.input_size = input_size
         self.init_transformer()
 
@@ -84,7 +93,7 @@ class Model(pl.LightningModule):
         )
         return loss
 
-    def on_validation_epoch_start(self) -> None:
+    def on_validation_epoch_start(self) -> None:  # TODO: Remove or fix
         self.val_error_scores = {}
         self.val_ys = {}
 
@@ -106,29 +115,105 @@ class Model(pl.LightningModule):
         x, attributes = batch
         label = attributes["label"][0]
         machine_type = attributes["machine_type"][0]
+        domain = attributes["domain"][0]
         y = 1 if label == "anomaly" else 0
 
         x = self.transform(x)
         x_hat = self(x)
         error_score = self.calculate_error_score(x, x_hat, attributes)
-        self.test_error_scores[machine_type].append(error_score.item())
-        self.test_ys[machine_type].append(y)
+        self.error_scores[machine_type].append(error_score.item())
+        self.ys[machine_type].append(y)
+        self.domains[machine_type].append(domain)
 
     def on_test_epoch_start(self) -> None:
-        self.test_error_scores = defaultdict(list)
-        self.test_ys = defaultdict(list)
+        self.error_scores = defaultdict(list)
+        self.ys = defaultdict(list)
+        self.domains = defaultdict(list)
+        self.performance_metrics = {}
 
     def on_test_epoch_end(self) -> None:
-        for machine_type, error_score in self.test_error_scores.items():
-            error_score = torch.tensor(error_score)
-            y = self.test_ys[machine_type]
-            y = torch.tensor(y)
+        for machine_type, error_score_list in self.error_scores.items():
+            error_score_list = torch.tensor(error_score_list)
+            y_list = self.ys[machine_type]
+            y_list = torch.tensor(y_list)
+            domain_dict = {"source": 0, "target": 1}
+            domain_list = torch.tensor(
+                [domain_dict[domain] for domain in self.domains[machine_type]]
+            )
 
-            auroc = binary_auroc(error_score, y).float()
-            auprc = binary_auprc(error_score, y).float()
+            # Calculate metrics for source and target domains combined
+            auc, p_auc, prec, recall, f1 = self.calculate_metrics(
+                error_score_list, y_list, self.max_fpr, self.decision_threshold
+            )
 
-            self.log(f"{machine_type}_auroc_epoch", auroc, prog_bar=True, logger=True)
-            self.log(f"{machine_type}_auprc_epoch", auprc, prog_bar=True, logger=True)
+            self.log(f"{machine_type}_auc_epoch", auc, prog_bar=True, logger=True)
+            self.log(f"{machine_type}_p_auc_epoch", p_auc, prog_bar=True, logger=True)
+            self.log(f"{machine_type}_prec_epoch", prec, prog_bar=True, logger=True)
+            self.log(f"{machine_type}_recall_epoch", recall, prog_bar=True, logger=True)
+            self.log(f"{machine_type}_f1_epoch", f1, prog_bar=True, logger=True)
+
+            machine_metrics = [auc, p_auc, prec, recall, f1]
+
+            # Calculate metrics for source and target domains separately
+            for domain in ("source", "target"):
+                y_true_auc = y_list[
+                    (domain_list == domain_dict[domain]) | (y_list == 1)
+                ]
+                y_pred_auc = error_score_list[
+                    (domain_list == domain_dict[domain]) | (y_list == 1)
+                ]
+                y_true = y_list[domain_list == domain_dict[domain]]
+                y_pred = error_score_list[domain_list == domain_dict[domain]]
+
+                auc, p_auc, prec, recall, f1 = self.calculate_metrics(
+                    y_pred_auc, y_true_auc, self.max_fpr, self.decision_threshold
+                )
+
+                self.log(
+                    f"{machine_type}_{domain}_auc_epoch",
+                    auc,
+                    prog_bar=True,
+                    logger=True,
+                )
+                self.log(
+                    f"{machine_type}_{domain}_p_auc_epoch",
+                    p_auc,
+                    prog_bar=True,
+                    logger=True,
+                )
+                self.log(
+                    f"{machine_type}_{domain}_prec_epoch",
+                    prec,
+                    prog_bar=True,
+                    logger=True,
+                )
+                self.log(
+                    f"{machine_type}_{domain}_recall_epoch",
+                    recall,
+                    prog_bar=True,
+                    logger=True,
+                )
+                self.log(
+                    f"{machine_type}_{domain}_f1_epoch", f1, prog_bar=True, logger=True
+                )
+
+                machine_metrics += [auc, p_auc, prec, recall, f1]
+
+            self.performance_metrics[machine_type] = np.array(machine_metrics)
+
+    @staticmethod
+    def calculate_metrics(
+        error_score_list: torch.Tensor,
+        y_list: torch.Tensor,
+        max_fpr: float,
+        decision_threshold: float,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        auc = binary_auroc(error_score_list, y_list)
+        p_auc = binary_auroc(error_score_list, y_list, max_fpr=max_fpr)
+        prec = binary_precision(error_score_list, y_list, threshold=decision_threshold)
+        recall = binary_recall(error_score_list, y_list, threshold=decision_threshold)
+        f1 = binary_f1_score(error_score_list, y_list, threshold=decision_threshold)
+        return auc, p_auc, prec, recall, f1
 
     def freeze_encoder(self):
         for param in self.encoder.parameters():
@@ -150,7 +235,7 @@ class Model(pl.LightningModule):
     def configure_optimizers(self) -> torch.optim.Optimizer:
         return torch.optim.Adam(
             filter(lambda p: p.requires_grad, self.parameters()),
-            lr=params[self.model]["lr"],
+            lr=self.lr,
         )
 
     def transform(self, x: torch.Tensor) -> torch.Tensor:

@@ -31,6 +31,10 @@ train:
   mix_machine_types: False
   model: baseline_ae
 
+classification:
+  max_fpr: 0.1
+  decision_threshold: 0.9
+
 baseline_ae:
   # model params
   loss: mse
