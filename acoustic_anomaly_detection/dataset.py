@@ -221,8 +221,9 @@ class AudioDataModule(LightningDataModule):
             drop_last=True,
         )
 
-    def compute_input_size(self):
-        return self.dataset[0][0].shape[1] * self.window_size
+    def calculate_input_size(self):
+        recon_dataset = AudioDataset(file_list=self.file_list[:1])
+        return recon_dataset[0][0].shape[1] * self.window_size
 
     def reshuffle_train_batches(self) -> None:
         self.seed += 1
@@ -264,6 +265,7 @@ class MachineTypeBatchSampler(BatchSampler):
             all_indices = [
                 idx for indices in self.indices_by_type.values() for idx in indices
             ]
+            random.shuffle(all_indices)
             batches = [
                 all_indices[i : i + self.batch_size]
                 for i in range(0, last_index, self.batch_size)

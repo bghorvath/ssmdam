@@ -22,8 +22,7 @@ def train(run_id: str):
 
         file_list = next(get_file_list("fit"))
         data_module = AudioDataModule(file_list=file_list)
-        data_module.setup(stage="fit")
-        input_size = data_module.compute_input_size()
+        input_size = data_module.calculate_input_size()
         model = get_model(input_size=input_size)
 
         checkpoint_callback = ModelCheckpoint(

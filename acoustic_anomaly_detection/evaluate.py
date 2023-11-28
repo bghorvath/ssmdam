@@ -30,8 +30,7 @@ def evaluate(run_id: str):
                 continue
 
             data_module = AudioDataModule(file_list=file_list)
-            data_module.setup(stage="test")
-            input_size = data_module.compute_input_size()
+            input_size = data_module.calculate_input_size()
             model = get_model(input_size=input_size)
 
             trainer = Trainer(logger=logger)

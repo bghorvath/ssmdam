@@ -3,6 +3,7 @@ import yaml
 import numpy as np
 import torch
 from torch import nn
+from torch.nn.functional import mse_loss, cross_entropy
 from torchmetrics.functional.classification import (
     binary_auroc,
     binary_precision,
@@ -34,6 +35,7 @@ class Model(pl.LightningModule):
         self.decision_threshold = params["classification"]["decision_threshold"]
         self.loss = params[self.model]["loss"]
         self.lr = params[self.model]["lr"]
+        self.mix_machine_types = params["train"]["mix_machine_types"]
         self.input_size = input_size
         self.init_transformer()
 
@@ -44,25 +46,46 @@ class Model(pl.LightningModule):
         self, batch: tuple[torch.Tensor, dict[str, str]], batch_idx: int
     ) -> torch.Tensor:
         x, attributes = batch
-        machine_type = attributes["machine_type"]
+        machine_types = attributes["machine_type"]
         x = self.transform(x)
         x_hat = self(x)
         loss = self.loss_fn(x, x_hat, attributes)
+
+        if self.mix_machine_types:
+            for i, machine_type in enumerate(machine_types):
+                self.train_error_scores[machine_type].append(loss[i].item())
+        else:
+            self.train_error_scores[machine_types[0]].append(loss.mean().item())
+
         self.log(
             "train_loss",
-            loss,
+            loss.mean(),
             on_step=True,
             on_epoch=True,
             prog_bar=True,
             logger=True,
             batch_size=x.shape[0],
         )
-        return loss
+        return loss.mean()
 
     def on_train_epoch_start(self) -> None:
+        self.train_error_scores = defaultdict(list)
+
         # Reshuffle the batches of the training dataloader
         if self.current_epoch > 0:
             self.trainer.datamodule.reshuffle_train_batches()
+
+    def on_train_epoch_end(self) -> None:
+        for machine_type, error_score in self.train_error_scores.items():
+            error_score = torch.tensor(error_score)
+            mean_error_score = torch.mean(error_score)
+
+            self.log(
+                f"{machine_type}_train_loss_epoch",
+                mean_error_score,
+                prog_bar=True,
+                logger=True,
+            )
 
     def validation_step(
         self, batch: tuple[torch.Tensor, dict[str, str]], batch_idx: int
@@ -72,15 +95,9 @@ class Model(pl.LightningModule):
         label = attributes["label"][0]
         x = self.transform(x)
         x_hat = self(x)
-        loss = self.loss_fn(x, x_hat, attributes)
-
-        if machine_type not in self.val_error_scores:
-            self.val_error_scores[machine_type] = []
-            self.val_ys[machine_type] = []
+        loss = self.loss_fn(x, x_hat, attributes).mean()
 
         self.val_error_scores[machine_type].append(loss.item())
-        y = 1 if attributes["label"] == "anomaly" else 0
-        self.val_ys[machine_type].append(y)
 
         self.log(
             "val_loss",
@@ -94,8 +111,7 @@ class Model(pl.LightningModule):
         return loss
 
     def on_validation_epoch_start(self) -> None:  # TODO: Remove or fix
-        self.val_error_scores = {}
-        self.val_ys = {}
+        self.val_error_scores = defaultdict(list)
 
     def on_validation_epoch_end(self) -> None:
         for machine_type, error_score in self.val_error_scores.items():
@@ -223,14 +239,15 @@ class Model(pl.LightningModule):
         self, x: torch.Tensor, y: torch.Tensor, attributes: dict
     ) -> torch.Tensor:
         if self.loss == "mse":
-            return nn.MSELoss()(x, y)
+            loss = mse_loss(x, y, reduction="none")
+            return loss.mean(dim=(1, 2))
         elif self.loss == "cross_entropy":
-            return nn.CrossEntropyLoss()(y, attributes)
+            return cross_entropy(y, attributes)
 
     def calculate_error_score(
         self, x: torch.Tensor, x_hat: torch.Tensor, attributes: dict
     ) -> torch.Tensor:
-        return self.loss_fn(x, x_hat, attributes)
+        return self.loss_fn(x, x_hat, attributes).mean()
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
         return torch.optim.Adam(
