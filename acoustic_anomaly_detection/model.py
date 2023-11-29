@@ -1,5 +1,4 @@
 from collections import defaultdict
-import yaml
 import numpy as np
 import torch
 from torch import nn
@@ -12,32 +11,35 @@ from torchmetrics.functional.classification import (
 )
 import lightning.pytorch as pl
 from transformers import ASTModel
+from acoustic_anomaly_detection.utils import (
+    slice_signal,
+    reconstruct_signal,
+    get_params,
+)
 
-from acoustic_anomaly_detection.utils import slice_signal, reconstruct_signal
 
-with open("params.yaml", "r") as f:
-    params = yaml.safe_load(f)
-
-
-def get_model(input_size: int) -> pl.LightningModule:
-    model = params["train"]["model"]
+def get_model(model: str, input_size: int, lr: float = 1e-3) -> pl.LightningModule:
     model_cls = {
-        "simple_ae": SimpleAE,
-        "baseline_ae": BaselineAE,
+        "ae": AutoEncoder,
     }[model]
-    return model_cls(input_size=input_size)
+    return model_cls(input_size, lr)
 
 
 class Model(pl.LightningModule):
-    def __init__(self, input_size: int):
+    def __init__(self, input_size: int, lr: float) -> None:
         super().__init__()
-        self.model = params["train"]["model"]
+
+        params = get_params()
+        self.model = params["model"]["name"]
+        self.layers = params["model"]["layers"]
         self.max_fpr = params["classification"]["max_fpr"]
         self.decision_threshold = params["classification"]["decision_threshold"]
-        self.loss = params[self.model]["loss"]
-        self.lr = params[self.model]["lr"]
-        self.mix_machine_types = params["train"]["mix_machine_types"]
+        self.mix_machine_types = params["data"]["mix_machine_types"]
+        self.transform_type = params["data"]["transform"]["name"]
+        self.window_size = params["data"]["transform"]["window_size"]
+        self.stride = params["data"]["transform"]["stride"]
         self.input_size = input_size
+        self.lr = lr
         self.init_transformer()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -50,7 +52,7 @@ class Model(pl.LightningModule):
         machine_types = attributes["machine_type"]
         x = self.transform(x)
         x_hat = self(x)
-        loss = self.loss_fn(x, x_hat, attributes)
+        loss = self.calculate_loss(x, x_hat, attributes)
 
         if self.mix_machine_types:
             for i, machine_type in enumerate(machine_types):
@@ -96,7 +98,7 @@ class Model(pl.LightningModule):
         label = attributes["label"][0]
         x = self.transform(x)
         x_hat = self(x)
-        loss = self.loss_fn(x, x_hat, attributes).mean()
+        loss = self.calculate_loss(x, x_hat, attributes).mean()
 
         self.val_error_scores[machine_type].append(loss.item())
 
@@ -236,19 +238,19 @@ class Model(pl.LightningModule):
         for param in self.encoder.parameters():
             param.requires_grad = False
 
-    def loss_fn(
+    def calculate_loss(
         self, x: torch.Tensor, y: torch.Tensor, attributes: dict
     ) -> torch.Tensor:
-        if self.loss == "mse":
+        if self.loss_fn == "mse":
             loss = mse_loss(x, y, reduction="none")
             return loss.mean(dim=(1, 2))
-        elif self.loss == "cross_entropy":
+        elif self.loss_fn == "cross_entropy":
             return cross_entropy(y, attributes)
 
     def calculate_error_score(
         self, x: torch.Tensor, x_hat: torch.Tensor, attributes: dict
     ) -> torch.Tensor:
-        return self.loss_fn(x, x_hat, attributes).mean()
+        return self.calculate_loss(x, x_hat, attributes).mean()
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
         return torch.optim.Adam(
@@ -257,93 +259,71 @@ class Model(pl.LightningModule):
         )
 
     def transform(self, x: torch.Tensor) -> torch.Tensor:
-        if params["transform"]["type"] == "ast":
+        if self.transform_type == "ast":
             with torch.no_grad():
                 return self.transformer(x).last_hidden_state
         return x
 
     def init_transformer(self) -> None:
-        if params["transform"]["type"] == "ast":
+        if self.transform_type == "ast":
             self.transformer = ASTModel.from_pretrained(
                 "MIT/ast-finetuned-audioset-10-10-0.4593"
             )
             self.input_size = 3840
 
 
-class SimpleAE(Model):
-    def __init__(self, input_size: int) -> None:
-        super().__init__(input_size)
-        self.encoder_layers = params[self.model]["layers"]["encoder"]
-        self.decoder_layers = params[self.model]["layers"]["decoder"]
-        self.encoder = nn.Sequential(
-            nn.Linear(self.input_size, self.encoder_layers[0]),
-            nn.ReLU(),
-            nn.Linear(self.encoder_layers[0], self.encoder_layers[1]),
-        )
-        self.decoder = nn.Sequential(
-            nn.Linear(self.decoder_layers[0], self.decoder_layers[1]),
-            nn.ReLU(),
-            nn.Linear(self.decoder_layers[1], self.input_size),
-        )
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        batch_size = x.shape[0]
-        z = slice_signal(x)
-        z = nn.Flatten(-2, -1)(z)
-        z = self.encoder(z)
-        z = self.decoder(z)
-        z = reconstruct_signal(z, batch_size)
-        return z.view(x.shape)
-
-
-class BaselineAE(Model):
+class AutoEncoder(Model):
     """
     Baseline AE model
     Source: https://github.com/nttcslab/dcase2023_task2_baseline_ae/blob/main/networks/dcase2023t2_ae/network.py
     """
 
-    def __init__(self, input_size: int) -> None:
-        super().__init__(input_size)
-        self.encoder_layers = params[self.model]["layers"]["encoder"]
-        self.decoder_layers = params[self.model]["layers"]["decoder"]
-        self.save_hyperparameters()
+    def __init__(self, input_size: int, lr: float) -> None:
+        super().__init__(input_size, lr)
+        self.loss_fn = "mse"
+        self.init_encoder_decoder()
+
+    def init_encoder_decoder(self):
+        encoder_layers = self.layers["encoder"]
+        decoder_layers = self.layers["decoder"]
+        encoder_input_output = zip(
+            [self.input_size] + encoder_layers[:-1], encoder_layers
+        )
+        decoder_input_output = zip(decoder_layers, decoder_layers[1:])
         self.encoder = nn.Sequential(
-            nn.Linear(self.input_size, self.encoder_layers[0]),
-            nn.BatchNorm1d(self.encoder_layers[0], momentum=0.01, eps=1e-03),
-            nn.ReLU(),
-            nn.Linear(self.encoder_layers[0], self.encoder_layers[1]),
-            nn.BatchNorm1d(self.encoder_layers[1], momentum=0.01, eps=1e-03),
-            nn.ReLU(),
-            nn.Linear(self.encoder_layers[1], self.encoder_layers[2]),
-            nn.BatchNorm1d(self.encoder_layers[2], momentum=0.01, eps=1e-03),
-            nn.ReLU(),
-            nn.Linear(self.encoder_layers[2], self.encoder_layers[3]),
-            nn.BatchNorm1d(self.encoder_layers[3], momentum=0.01, eps=1e-03),
-            nn.ReLU(),
-            nn.Linear(self.encoder_layers[3], self.encoder_layers[4]),
-            nn.BatchNorm1d(self.encoder_layers[4], momentum=0.01, eps=1e-03),
-            nn.ReLU(),
+            *[
+                self.get_single_module(input_size, output_size)
+                for input_size, output_size in encoder_input_output
+            ]
         )
         self.decoder = nn.Sequential(
-            nn.Linear(self.decoder_layers[0], self.decoder_layers[1]),
-            nn.BatchNorm1d(self.decoder_layers[1], momentum=0.01, eps=1e-03),
-            nn.ReLU(),
-            nn.Linear(self.decoder_layers[1], self.decoder_layers[2]),
-            nn.BatchNorm1d(self.decoder_layers[2], momentum=0.01, eps=1e-03),
-            nn.ReLU(),
-            nn.Linear(self.decoder_layers[2], self.decoder_layers[3]),
-            nn.BatchNorm1d(self.decoder_layers[3], momentum=0.01, eps=1e-03),
-            nn.ReLU(),
-            nn.Linear(self.decoder_layers[3], self.decoder_layers[4]),
-            nn.BatchNorm1d(self.decoder_layers[4], momentum=0.01, eps=1e-03),
-            nn.ReLU(),
-            nn.Linear(self.decoder_layers[4], self.input_size),
+            *[
+                self.get_single_module(input_size, output_size)
+                for input_size, output_size in decoder_input_output
+            ]
+            + [
+                self.get_single_module(
+                    decoder_layers[-1], self.input_size, last_layer=True
+                )
+            ]
         )
+
+    def get_single_module(
+        self, input_size: int, output_size: int, last_layer: bool = False
+    ):
+        if last_layer:
+            return nn.Linear(input_size, output_size)
+        else:
+            return nn.Sequential(
+                nn.Linear(input_size, output_size),
+                nn.BatchNorm1d(output_size, momentum=0.01, eps=1e-03),
+                nn.ReLU(),
+            )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         batch_size = x.shape[0]
         # [batch_size, 313, 128]
-        z = slice_signal(x)
+        z = slice_signal(x, self.window_size, self.stride)
         # [batch_size, 309, 5, 128]
         z = nn.Flatten(0, 1)(z)
         # [batch_size * 309, 5, 128]
@@ -351,5 +331,5 @@ class BaselineAE(Model):
         # [batch_size * 309, 5 * 128]
         z = self.encoder(z)
         z = self.decoder(z)
-        z = reconstruct_signal(z, batch_size)
+        z = reconstruct_signal(z, batch_size, self.window_size)
         return z

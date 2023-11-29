@@ -1,19 +1,16 @@
 import os
 import random
-import yaml
 import torch
 from torch.utils.data import Dataset, DataLoader, random_split, BatchSampler
 import torchaudio
 from torchaudio.transforms import MelSpectrogram, MFCC, Spectrogram, AmplitudeToDB
 from lightning.pytorch import LightningDataModule
 from transformers import AutoProcessor
-from acoustic_anomaly_detection.utils import get_attributes
-
-with open("params.yaml", "r") as f:
-    params = yaml.safe_load(f)
+from acoustic_anomaly_detection.utils import get_attributes, get_params
 
 
 def get_file_list(stage: str) -> list or tuple[str, list]:
+    params = get_params()
     data_sources = params["data"]["data_sources"]
     dev_eval = "dev" if stage in ("fit", "test") else "eval"
     train_test = "train" if stage in ("fit", "finetune") else "test"
@@ -49,11 +46,13 @@ class ASTProcessor(torch.nn.Module):
         self.ast = AutoProcessor.from_pretrained(
             "MIT/ast-finetuned-audioset-10-10-0.4593"
         )
+        params = get_params()
+        self.sr = params["data"]["transform"]["sr"]
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.ast(
             x.squeeze(0),
-            sampling_rate=params["transform"]["params"]["sr"],
+            sampling_rate=self.sr,
             return_tensors="pt",
         )
         return x["input_values"]
@@ -65,12 +64,14 @@ class AudioDataset(Dataset):
         file_list: list,
     ) -> None:
         self.file_list = file_list
+        params = get_params()
         self.fast_dev_run = params["data"]["fast_dev_run"]
-        self.seed = params["train"]["seed"]
-        self.transform_type = params["transform"]["type"]
-        self.segment = params["transform"]["segment"]
-        self.sr = params["transform"]["params"]["sr"]
-        self.duration = params["transform"]["params"]["duration"]
+        self.seed = params["data"]["seed"]
+        self.transform_type = params["data"]["transform"]["name"]
+        self.segment = params["data"]["transform"]["segment"]
+        self.sr = params["data"]["transform"]["sr"]
+        self.duration = params["data"]["transform"]["duration"]
+        self.transform_params = params["data"]["transform"]
         self.length = self.sr * self.duration
 
         self.transform_func = {
@@ -81,7 +82,7 @@ class AudioDataset(Dataset):
         }[self.transform_type]
         transform_params = {
             k: v
-            for k, v in params["transform"]["params"].items()
+            for k, v in self.transform_params.items()
             if k in self.transform_func.__init__.__code__.co_varnames
         }
         self.transform_func = self.transform_func(**transform_params)
@@ -161,12 +162,13 @@ class AudioDataset(Dataset):
 class AudioDataModule(LightningDataModule):
     def __init__(self, file_list: list) -> None:
         super().__init__()
+        params = get_params()
         self.train_split = params["data"]["train_split"]
-        self.batch_size = params["train"]["batch_size"]
-        self.num_workers = params["train"]["num_workers"]
-        self.mix_machine_types = params["train"]["mix_machine_types"]
-        self.window_size = params["transform"]["params"]["window_size"]
-        self.seed = params["train"]["seed"]
+        self.batch_size = params["data"]["batch_size"]
+        self.num_workers = params["data"]["num_workers"]
+        self.mix_machine_types = params["data"]["mix_machine_types"]
+        self.window_size = params["data"]["transform"]["window_size"]
+        self.seed = params["data"]["seed"]
         self.file_list = file_list
 
     def setup(self, stage: str = None) -> None:

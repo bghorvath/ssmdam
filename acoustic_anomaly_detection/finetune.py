@@ -1,5 +1,4 @@
 import os
-import yaml
 from tqdm import tqdm
 from lightning import Trainer
 from lightning.pytorch.callbacks import ModelCheckpoint
@@ -7,14 +6,16 @@ from lightning.pytorch.loggers import MLFlowLogger
 import mlflow
 from acoustic_anomaly_detection.dataset import AudioDataModule, get_file_list
 from acoustic_anomaly_detection.model import get_model
-
-with open("params.yaml", "r") as f:
-    params = yaml.safe_load(f)
+from acoustic_anomaly_detection.utils import get_params
 
 
 def finetune(run_id: str):
-    run_dir = params["train"]["run_dir"]
-    epochs = params["train"]["epochs"]
+    params = get_params()
+
+    run_dir = params["log"]["run_dir"]
+    epochs = params["finetune"]["epochs"]
+    lr = params["finetune"]["lr"]
+    model = params["model"]["name"]
 
     with mlflow.start_run(run_id=run_id) as mlrun:
         experiment_id = mlrun.info.experiment_id
@@ -33,7 +34,7 @@ def finetune(run_id: str):
             input_size = data_module.calculate_input_size()
             finetune_ckpt_dir = os.path.join(finetune_ckpt_root_dir, machine_type)
 
-            model = get_model(input_size=input_size)
+            model = get_model(model=model, input_size=input_size, lr=lr)
             if not os.path.exists(finetune_ckpt_dir):
                 model.load_from_checkpoint(train_ckpt_path)
             model.freeze_encoder()

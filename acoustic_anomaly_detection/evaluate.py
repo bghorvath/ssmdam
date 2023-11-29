@@ -1,19 +1,18 @@
 import os
-import yaml
 from tqdm import tqdm
 from lightning import Trainer
 from lightning.pytorch.loggers import MLFlowLogger
 import mlflow
 from acoustic_anomaly_detection.dataset import AudioDataModule, get_file_list
 from acoustic_anomaly_detection.model import get_model
-from acoustic_anomaly_detection.utils import save_metrics
-
-with open("params.yaml", "r") as f:
-    params = yaml.safe_load(f)
+from acoustic_anomaly_detection.utils import save_metrics, get_params
 
 
 def evaluate(run_id: str):
-    run_dir = params["train"]["run_dir"]
+    params = get_params()
+
+    run_dir = params["log"]["run_dir"]
+    model = params["model"]["name"]
 
     with mlflow.start_run(run_id=run_id) as mlrun:
         experiment_id = mlrun.info.experiment_id
@@ -33,7 +32,7 @@ def evaluate(run_id: str):
 
             data_module = AudioDataModule(file_list=file_list)
             input_size = data_module.calculate_input_size()
-            model = get_model(input_size=input_size)
+            model = get_model(model=model, input_size=input_size)
 
             trainer = Trainer(logger=logger)
 

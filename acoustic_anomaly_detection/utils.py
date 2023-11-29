@@ -8,9 +8,6 @@ from scipy import stats
 import torch
 import mlflow
 
-with open("params.yaml", "r") as f:
-    params = yaml.safe_load(f)
-
 
 def get_attributes(file_path: str):
     """
@@ -42,14 +39,12 @@ def get_attributes(file_path: str):
     return attributes
 
 
-def slice_signal(signal: torch.Tensor) -> torch.Tensor:
+def slice_signal(signal: torch.Tensor, window_size: int, stride: int) -> torch.Tensor:
     """
     Splits a tensor into windows of a specified size and stride.
     Expected shape: (batch_size, length, feature_size)
     Returns a tensor of shape (batch_size, num_windows, window_size, feature_size)
     """
-    window_size = params["transform"]["params"]["window_size"]
-    stride = params["transform"]["params"]["stride"]
     batch_size, length, feature_size = signal.shape
     num_windows = (length - window_size) // stride + 1
     windows = []
@@ -59,14 +54,13 @@ def slice_signal(signal: torch.Tensor) -> torch.Tensor:
     return torch.stack(windows, dim=1)
 
 
-def reconstruct_signal(sliced_tensor: torch.Tensor, batch_size: int) -> torch.Tensor:
+def reconstruct_signal(sliced_tensor: torch.Tensor, batch_size: int, window_size: int):
     """
     Reconstructs the original tensor from a windowed tensor.
     Expected shape: (batch_size, num_windows, window_size, feature_size)
     Returns a tensor of shape (batch_size, length, feature_size)
     """
     num_windows = sliced_tensor.shape[0] // batch_size
-    window_size = params["transform"]["params"]["window_size"]
     feature_size = sliced_tensor.shape[1] // window_size
     sliced_tensor = sliced_tensor.view(
         batch_size, num_windows, window_size, feature_size
@@ -125,6 +119,9 @@ def save_metrics(metrics_dict: dict, artifacts_dir: str, stage: str):
 def flatten_dict(d: dict) -> dict:
     """
     Flattens a nested dictionary.
+    Example:
+    d: {"a": {"b": 1, "c": {"d": [2, 3]}}}
+    Returns: {"a.b": 1, "a.c.d": [2, 3]}
     """
 
     def expand(key, value):
@@ -135,3 +132,30 @@ def flatten_dict(d: dict) -> dict:
 
     items = [item for k, v in d.items() for item in expand(k, v)]
     return dict(items)
+
+
+def update_nested_dict(nested_dict: dict, flattened_dict: dict) -> dict:
+    """
+    Update keys in nested dictionary d with values from u if they exist.
+    Example:
+    d: {"a": {"b": 1, "c": 2}}
+    u: {"a.b": 3, "a.d": 4}
+    """
+    for k, v in flattened_dict.items():
+        keys = k.split(".")
+        if len(keys) == 1:
+            nested_dict[k] = v
+        else:
+            nested_dict[keys[0]] = update_nested_dict(
+                nested_dict[keys[0]], {k[len(keys[0]) + 1 :]: v}
+            )
+    return nested_dict
+
+
+def get_params(params_file: str = "params.yaml") -> dict:
+    """
+    Returns the parameters from the specified YAML file.
+    """
+    with open(params_file, "r") as f:
+        params = yaml.safe_load(f)
+    return params

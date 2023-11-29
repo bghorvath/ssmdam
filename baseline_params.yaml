@@ -1,20 +1,22 @@
 data:
   train_split: 0.8
-  fast_dev_run: True
+  fast_dev_run: False
   data_sources:
     - dcase2023t2
-
-transform:
-  type: mel_spectrogram
-  segment: False
-  params:
-  # audio params
+  num_workers: 8
+  seed: 42
+  batch_size: 8
+  mix_machine_types: False
+  transform:
+    name: mel_spectrogram
+    segment: False
+    # audio params
     sr: 16000
     duration: 10
-  # sliding window params
+    # sliding window params
     window_size: 5
     stride: 1
-  # stft params
+    # stft params
     n_fft: 1024
     hop_length: 512
     # mel params
@@ -22,33 +24,25 @@ transform:
     # mfcc params
     n_mfcc: 40
 
-train:
+log:
   run_dir: mlruns
-  num_workers: 8
-  seed: 42
+  save_top_k: 1
+  verbose: True
+
+train:
   epochs: 100
-  batch_size: 8
-  mix_machine_types: True
-  model: baseline_ae
+  lr: 0.001
+
+finetune:
+  epochs: 100
+  lr: 0.001
 
 classification:
   max_fpr: 0.1
   decision_threshold: 0.9
 
-baseline_ae:
-  # model params
-  loss: mse
-  lr: 0.001
+model:
+  name: ae
   layers:
-    encoder:
-      - 128
-      - 128
-      - 128
-      - 128
-      - 8
-    decoder:
-      - 8
-      - 128
-      - 128
-      - 128
-      - 128
+    encoder: [128, 128, 128, 128, 8]
+    decoder: [8, 128, 128, 128, 128]
