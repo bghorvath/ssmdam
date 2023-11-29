@@ -2,14 +2,14 @@ import os
 import argparse
 import json
 import yaml
+import shutil
 from datetime import datetime
 import mlflow
 from acoustic_anomaly_detection.train import train
 from acoustic_anomaly_detection.test import test
 from acoustic_anomaly_detection.finetune import finetune
 from acoustic_anomaly_detection.evaluate import evaluate
-
-params = yaml.safe_load(open("params.yaml"))
+from acoustic_anomaly_detection.utils import flatten_dict
 
 
 def get_run_id(run_id: str) -> str:
@@ -42,7 +42,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--evaluate", action="store_true", help="Run the evaluation step."
     )
-    # parser.add_argument("--config", type=str, default=None, help="Path to config file."")
+    parser.add_argument("--config", type=str, default=None, help="Path to config file.")
     parser.add_argument(
         "--run_id",
         type=str,
@@ -51,6 +51,15 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
+
+    if args.config:
+        config_path = args.config + ".yaml"
+        if not os.path.exists(config_path):
+            raise ValueError(f"Config file {config_path} not found.")
+        shutil.copy(config_path, "params.yaml")
+
+    with open("params.yaml", "r") as f:
+        params = yaml.safe_load(f)
 
     if args.all:
         args.train = True
@@ -73,6 +82,10 @@ if __name__ == "__main__":
     else:
         run_id = get_run_id(args.run_id)
         print(f"Resuming run with ID: {run_id}")
+
+    with mlflow.start_run(run_id=run_id):
+        flatten_params = flatten_dict(params)
+        mlflow.log_params(flatten_params)
 
     if args.train:
         train(run_id)

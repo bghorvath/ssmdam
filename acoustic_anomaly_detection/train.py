@@ -7,9 +7,11 @@ import mlflow
 from acoustic_anomaly_detection.dataset import AudioDataModule, get_file_list
 from acoustic_anomaly_detection.model import get_model
 
+with open("params.yaml", "r") as f:
+    params = yaml.safe_load(f)
+
 
 def train(run_id: str):
-    params = yaml.safe_load(open("params.yaml"))
     run_dir = params["train"]["run_dir"]
     epochs = params["train"]["epochs"]
 

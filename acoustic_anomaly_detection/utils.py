@@ -8,7 +8,8 @@ from scipy import stats
 import torch
 import mlflow
 
-params = yaml.safe_load(open("params.yaml"))
+with open("params.yaml", "r") as f:
+    params = yaml.safe_load(f)
 
 
 def get_attributes(file_path: str):
@@ -119,3 +120,18 @@ def save_metrics(metrics_dict: dict, artifacts_dir: str, stage: str):
     metrics_df.index.name = "Machine type"
     metrics_df.reset_index(inplace=True)
     metrics_df.to_csv(os.path.join(artifacts_dir, f"{stage}_metrics.csv"), index=False)
+
+
+def flatten_dict(d: dict) -> dict:
+    """
+    Flattens a nested dictionary.
+    """
+
+    def expand(key, value):
+        if isinstance(value, dict):
+            return [(key + "." + k, v) for k, v in flatten_dict(value).items()]
+        else:
+            return [(key, value)]
+
+    items = [item for k, v in d.items() for item in expand(k, v)]
+    return dict(items)

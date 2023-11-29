@@ -15,7 +15,8 @@ from transformers import ASTModel
 
 from acoustic_anomaly_detection.utils import slice_signal, reconstruct_signal
 
-params = yaml.safe_load(open("params.yaml"))
+with open("params.yaml", "r") as f:
+    params = yaml.safe_load(f)
 
 
 def get_model(input_size: int) -> pl.LightningModule:
@@ -274,7 +275,6 @@ class SimpleAE(Model):
         super().__init__(input_size)
         self.encoder_layers = params[self.model]["layers"]["encoder"]
         self.decoder_layers = params[self.model]["layers"]["decoder"]
-        self.save_hyperparameters()
         self.encoder = nn.Sequential(
             nn.Linear(self.input_size, self.encoder_layers[0]),
             nn.ReLU(),

@@ -7,11 +7,10 @@ import torchaudio
 from torchaudio.transforms import MelSpectrogram, MFCC, Spectrogram, AmplitudeToDB
 from lightning.pytorch import LightningDataModule
 from transformers import AutoProcessor
-
-
 from acoustic_anomaly_detection.utils import get_attributes
 
-params = yaml.safe_load(open("params.yaml"))
+with open("params.yaml", "r") as f:
+    params = yaml.safe_load(f)
 
 
 def get_file_list(stage: str) -> list or tuple[str, list]:
@@ -87,7 +86,7 @@ class AudioDataset(Dataset):
         }
         self.transform_func = self.transform_func(**transform_params)
 
-        if self.fast_dev_run:
+        if self.fast_dev_run and len(self.file_list) > 100:
             random.seed(self.seed)
             self.file_list = random.sample(self.file_list, 100)
 
