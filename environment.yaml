@@ -13,6 +13,7 @@ dependencies:
   - matplotlib
   - pre-commit
   - pytest
+  - pip
   # For CPU (comment out GPU dependencies and uncomment these if needed):
   # - pytorch=2.0.1
   # - torchvision>=0.15.2
