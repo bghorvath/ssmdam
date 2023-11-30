@@ -1,8 +1,4 @@
-import os
 import argparse
-import json
-import yaml
-import shutil
 from datetime import datetime
 import mlflow
 from acoustic_anomaly_detection.train import train
@@ -11,7 +7,6 @@ from acoustic_anomaly_detection.finetune import finetune
 from acoustic_anomaly_detection.evaluate import evaluate
 from acoustic_anomaly_detection.utils import (
     flatten_dict,
-    unflatten_dict,
     update_nested_dict,
     load_params,
     save_params,

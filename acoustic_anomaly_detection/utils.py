@@ -1,7 +1,6 @@
 import os
 import ast
 import yaml
-import json
 import sys
 import numpy as np
 import pandas as pd
@@ -89,17 +88,24 @@ def reconstruct_signal(sliced_tensor: torch.Tensor, batch_size: int, window_size
     return reconstructed
 
 
+def min_max_scaler(x: torch.Tensor) -> torch.Tensor:
+    """
+    Applies min-max scaling to a tensor.
+    """
+    return (x - x.min()) / (x.max() - x.min())
+
+
 def calculate_metrics(
-    error_score: torch.Tensor,
+    y_pred: torch.Tensor,
     y_true: torch.Tensor,
     max_fpr: float,
     decision_threshold: float,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-    auc = binary_auroc(error_score, y_true)
-    p_auc = binary_auroc(error_score, y_true, max_fpr=max_fpr)
-    prec = binary_precision(error_score, y_true, threshold=decision_threshold)
-    recall = binary_recall(error_score, y_true, threshold=decision_threshold)
-    f1 = binary_f1_score(error_score, y_true, threshold=decision_threshold)
+    auc = binary_auroc(y_pred, y_true)
+    p_auc = binary_auroc(y_pred, y_true, max_fpr=max_fpr)
+    prec = binary_precision(y_pred, y_true, threshold=decision_threshold)
+    recall = binary_recall(y_pred, y_true, threshold=decision_threshold)
+    f1 = binary_f1_score(y_pred, y_true, threshold=decision_threshold)
     return auc, p_auc, prec, recall, f1
 
 
@@ -198,7 +204,7 @@ def convert_to_original_format(value: str):
     """
     try:
         return ast.literal_eval(value)
-    except:
+    except ValueError:
         return value
 
 

@@ -10,6 +10,7 @@ from acoustic_anomaly_detection.utils import (
     reconstruct_signal,
     load_params,
     calculate_metrics,
+    min_max_scaler,
 )
 
 
@@ -90,7 +91,7 @@ class Model(pl.LightningModule):
     ) -> torch.Tensor:
         x, attributes = batch
         machine_type = attributes["machine_type"][0]
-        label = attributes["label"][0]
+        # label = attributes["label"][0]
         x = self.transform(x)
         x_hat = self(x)
         loss = self.calculate_loss(x, x_hat, attributes).mean()
@@ -171,17 +172,20 @@ class Model(pl.LightningModule):
 
             # Calculate metrics for source and target domains separately
             for domain in ("source", "target"):
-                y_true_auc = y_true[
+                y_true_domain_auc = y_true[
                     (domain_true == domain_dict[domain]) | (y_true == 1)
                 ]
-                y_pred_auc = error_score[
+                y_pred_domain_auc = error_score[
                     (domain_true == domain_dict[domain]) | (y_true == 1)
                 ]
-                y_true = y_true[domain_true == domain_dict[domain]]
-                y_pred = error_score[domain_true == domain_dict[domain]]
+                # y_true_domain = y_true[domain_true == domain_dict[domain]]
+                # y_pred_domain = error_score[domain_true == domain_dict[domain]]
 
                 auc, p_auc, prec, recall, f1 = calculate_metrics(
-                    y_pred_auc, y_true_auc, self.max_fpr, self.decision_threshold
+                    y_pred_domain_auc,
+                    y_true_domain_auc,
+                    self.max_fpr,
+                    self.decision_threshold,
                 )
 
                 self.log(
@@ -231,7 +235,6 @@ class Model(pl.LightningModule):
 
     @staticmethod
     def calculate_error_score(loss: torch.Tensor) -> torch.Tensor:
-        min_max_scaler = lambda x: (x - x.min()) / (x.max() - x.min())
         return min_max_scaler(loss)
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
