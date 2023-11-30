@@ -4,11 +4,11 @@ from lightning.pytorch.loggers import MLFlowLogger
 import mlflow
 from acoustic_anomaly_detection.dataset import AudioDataModule, get_file_list
 from acoustic_anomaly_detection.model import get_model
-from acoustic_anomaly_detection.utils import save_metrics, get_params
+from acoustic_anomaly_detection.utils import save_metrics, load_params
 
 
 def test(run_id: str):
-    params = get_params()
+    params = load_params()
 
     run_dir = params["log"]["run_dir"]
     model = params["model"]["name"]

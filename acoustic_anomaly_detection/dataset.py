@@ -6,11 +6,11 @@ import torchaudio
 from torchaudio.transforms import MelSpectrogram, MFCC, Spectrogram, AmplitudeToDB
 from lightning.pytorch import LightningDataModule
 from transformers import AutoProcessor
-from acoustic_anomaly_detection.utils import get_attributes, get_params
+from acoustic_anomaly_detection.utils import get_attributes, load_params
 
 
 def get_file_list(stage: str) -> list or tuple[str, list]:
-    params = get_params()
+    params = load_params()
     data_sources = params["data"]["data_sources"]
     dev_eval = "dev" if stage in ("fit", "test") else "eval"
     train_test = "train" if stage in ("fit", "finetune") else "test"
@@ -46,7 +46,7 @@ class ASTProcessor(torch.nn.Module):
         self.ast = AutoProcessor.from_pretrained(
             "MIT/ast-finetuned-audioset-10-10-0.4593"
         )
-        params = get_params()
+        params = load_params()
         self.sr = params["data"]["transform"]["sr"]
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -64,7 +64,7 @@ class AudioDataset(Dataset):
         file_list: list,
     ) -> None:
         self.file_list = file_list
-        params = get_params()
+        params = load_params()
         self.fast_dev_run = params["data"]["fast_dev_run"]
         self.seed = params["data"]["seed"]
         self.transform_type = params["data"]["transform"]["name"]
@@ -162,7 +162,7 @@ class AudioDataset(Dataset):
 class AudioDataModule(LightningDataModule):
     def __init__(self, file_list: list) -> None:
         super().__init__()
-        params = get_params()
+        params = load_params()
         self.train_split = params["data"]["train_split"]
         self.batch_size = params["data"]["batch_size"]
         self.num_workers = params["data"]["num_workers"]

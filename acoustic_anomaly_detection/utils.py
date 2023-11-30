@@ -1,4 +1,5 @@
 import os
+import ast
 import yaml
 import json
 import sys
@@ -134,6 +135,25 @@ def flatten_dict(d: dict) -> dict:
     return dict(items)
 
 
+def unflatten_dict(d: dict) -> dict:
+    """
+    Unflattens a flattened dictionary.
+    Example:
+    d: {"a.b": 1, "a.c.d": [2, 3]}
+    Returns: {"a": {"b": 1, "c": {"d": [2, 3]}}}
+    """
+    result = {}
+    for key, value in d.items():
+        parts = key.split(".")
+        d = result
+        for part in parts[:-1]:
+            if part not in d:
+                d[part] = {}
+            d = d[part]
+        d[parts[-1]] = value
+    return result
+
+
 def update_nested_dict(nested_dict: dict, flattened_dict: dict) -> dict:
     """
     Update keys in nested dictionary d with values from u if they exist.
@@ -152,10 +172,42 @@ def update_nested_dict(nested_dict: dict, flattened_dict: dict) -> dict:
     return nested_dict
 
 
-def get_params(params_file: str = "params.yaml") -> dict:
+def convert_to_original_format(value: str):
     """
-    Returns the parameters from the specified YAML file.
+    Converts a string to its original format. Needed for loading parameters from MLflow.
     """
+    try:
+        return ast.literal_eval(value)
+    except:
+        return value
+
+
+def load_params(params_file: str = None, run_id: str = None) -> dict:
+    """
+    Returns a dictionary of parameters.
+    If params_file is specified, it loads the parameters from the file.
+    If run_id is specified, it loads the parameters from the MLflow run.
+    """
+    if params_file and run_id:
+        raise ValueError("Please specify only one of params_file and run_id.")
+
+    if run_id:
+        client = mlflow.tracking.MlflowClient()
+        run = client.get_run(run_id)
+        params = run.data.params
+        converted_params = {k: convert_to_original_format(v) for k, v in params.items()}
+        unflatten_params = unflatten_dict(converted_params)
+        return unflatten_params
+
+    params_file = params_file or "params.yaml"
+    if not os.path.exists(params_file):
+        raise ValueError(f"Parameter config file {params_file} not found.")
+
     with open(params_file, "r") as f:
         params = yaml.safe_load(f)
     return params
+
+
+def save_params(params: dict):
+    with open("params.yaml", "w") as f:
+        yaml.dump(params, f)

@@ -11,8 +11,10 @@ from acoustic_anomaly_detection.finetune import finetune
 from acoustic_anomaly_detection.evaluate import evaluate
 from acoustic_anomaly_detection.utils import (
     flatten_dict,
+    unflatten_dict,
     update_nested_dict,
-    get_params,
+    load_params,
+    save_params,
 )
 
 
@@ -79,8 +81,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--param",
         type=str,
-        default="params.yaml",
-        help="Path to custom hyperparameters file. Default: params.yaml",
+        default=None,
+        help="Path to custom hyperparameters file.",
     )
     parser.add_argument(
         "--param_variations",
@@ -97,12 +99,6 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    if not os.path.exists(args.param):
-        raise ValueError(f"Parameter config file {args.param} not found.")
-    params = get_params(args.param)
-    if args.param != "params.yaml":
-        shutil.copy(args.param, "params.yaml")
-
     if args.all:
         args.train = True
         args.test = True
@@ -110,11 +106,21 @@ if __name__ == "__main__":
         args.evaluate = True
 
     if args.run_id:
+        if args.train:
+            raise ValueError(
+                "Cannot specify both --run_id and --train. Use --run_id to resume an existing run."
+            )
         if args.param_variations:
             raise ValueError(
                 "Cannot specify both --run_id and --param_variations. Parameter combinations are only supported for new runs."
             )
+
         run_id = get_run_id(args.run_id)
+
+        # if args.param is set, use that config, otherwise load it from the logged params
+        params = load_params(params_file=args.param, run_id=run_id)
+        save_params(params)
+
         print(f"Resuming run with ID: {run_id}")
         start_run(args, run_id, params)
     else:
@@ -122,20 +128,20 @@ if __name__ == "__main__":
             raise ValueError(
                 "Either specify --run_id to resume run or --train to start a new run."
             )
+
+        params = load_params(args.param)
+        # if args.param is specified, overwrite params.yaml
+        if args.param:
+            save_params(params)
+
         if not args.param_variations:
             run_id = create_mlflow_run(params)
             start_run(args, run_id, params)
         else:
-            if not os.path.exists(args.param_variations):
-                raise ValueError(
-                    f"Parameter combinations file {args.param_variations} not found."
-                )
-            with open(args.param_variations, "r") as f:
-                param_variations = yaml.safe_load(f)
+            param_variations = load_params(args.param_variations)
 
-            for combination in param_variations:
-                combination_params = update_nested_dict(params, combination)
-                with open("params.yaml", "w") as f:
-                    yaml.dump(combination_params, f)
-                run_id = create_mlflow_run(combination_params)
-                start_run(args, run_id, combination_params)
+            for variation in param_variations:
+                variation_combined = update_nested_dict(params, variation)
+                save_params(variation_combined)
+                run_id = create_mlflow_run(variation_combined)
+                start_run(args, run_id, variation_combined)

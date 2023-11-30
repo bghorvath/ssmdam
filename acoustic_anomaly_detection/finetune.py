@@ -6,11 +6,11 @@ from lightning.pytorch.loggers import MLFlowLogger
 import mlflow
 from acoustic_anomaly_detection.dataset import AudioDataModule, get_file_list
 from acoustic_anomaly_detection.model import get_model
-from acoustic_anomaly_detection.utils import get_params
+from acoustic_anomaly_detection.utils import load_params
 
 
 def finetune(run_id: str):
-    params = get_params()
+    params = load_params()
 
     run_dir = params["log"]["run_dir"]
     epochs = params["finetune"]["epochs"]

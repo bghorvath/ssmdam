@@ -14,7 +14,7 @@ from transformers import ASTModel
 from acoustic_anomaly_detection.utils import (
     slice_signal,
     reconstruct_signal,
-    get_params,
+    load_params,
 )
 
 
@@ -29,7 +29,7 @@ class Model(pl.LightningModule):
     def __init__(self, input_size: int, lr: float) -> None:
         super().__init__()
 
-        params = get_params()
+        params = load_params()
         self.model = params["model"]["name"]
         self.layers = params["model"]["layers"]
         self.max_fpr = params["classification"]["max_fpr"]
