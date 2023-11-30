@@ -20,3 +20,11 @@ repos:
     rev: 22.10.0
     hooks:
     -   id: black
+-   repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.1.6
+    hooks:
+    # Run the linter.
+    - id: ruff
+      args: [ --fix ]
+    # Run the formatter.
+    - id: ruff-format
