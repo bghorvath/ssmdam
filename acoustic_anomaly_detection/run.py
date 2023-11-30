@@ -100,11 +100,8 @@ if __name__ == "__main__":
         args.finetune = True
         args.evaluate = True
 
+    # if run_id is specified, resume run
     if args.run_id:
-        if args.train:
-            raise ValueError(
-                "Cannot specify both --run_id and --train. Use --run_id to resume an existing run."
-            )
         if args.param_variations:
             raise ValueError(
                 "Cannot specify both --run_id and --param_variations. Parameter combinations are only supported for new runs."
