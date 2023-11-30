@@ -7,6 +7,12 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 import torch
+from torchmetrics.functional.classification import (
+    binary_auroc,
+    binary_precision,
+    binary_recall,
+    binary_f1_score,
+)
 import mlflow
 
 
@@ -81,6 +87,20 @@ def reconstruct_signal(sliced_tensor: torch.Tensor, batch_size: int, window_size
     reconstructed = torch.cat([left_values, center_values, right_values], dim=1)
 
     return reconstructed
+
+
+def calculate_metrics(
+    error_score: torch.Tensor,
+    y_true: torch.Tensor,
+    max_fpr: float,
+    decision_threshold: float,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    auc = binary_auroc(error_score, y_true)
+    p_auc = binary_auroc(error_score, y_true, max_fpr=max_fpr)
+    prec = binary_precision(error_score, y_true, threshold=decision_threshold)
+    recall = binary_recall(error_score, y_true, threshold=decision_threshold)
+    f1 = binary_f1_score(error_score, y_true, threshold=decision_threshold)
+    return auc, p_auc, prec, recall, f1
 
 
 def save_metrics(metrics_dict: dict, artifacts_dir: str, stage: str):
