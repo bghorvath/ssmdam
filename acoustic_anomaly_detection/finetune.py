@@ -16,6 +16,7 @@ def finetune(run_id: str):
     epochs = params["finetune"]["epochs"]
     lr = params["finetune"]["lr"]
     model = params["model"]["name"]
+    fast_dev_run = params["data"]["fast_dev_run"]
 
     with mlflow.start_run(run_id=run_id) as mlrun:
         experiment_id = mlrun.info.experiment_id
@@ -61,3 +62,6 @@ def finetune(run_id: str):
                 datamodule=data_module,
                 ckpt_path="last" if os.path.exists(finetune_ckpt_dir) else None,
             )
+
+            if fast_dev_run:
+                break

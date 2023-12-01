@@ -1,11 +1,11 @@
-- model.layers.encoder: [128, 64, 32, 16, 8]
-  model.layers.decoder: [8, 16, 32, 64, 128]
-- model.layers.encoder: [128, 128, 128, 128, 16]
-  model.layers.decoder: [16, 128, 128, 128, 128]
-- model.layers.encoder: [128, 128, 128, 128, 128, 8]
-  model.layers.decoder: [8, 128, 128, 128, 128, 128]
-# - finetune.lr: 0.01
-#   finetune.epochs: 100
-# - finetune.lr: 0.0001
-#   finetune.epochs: 100
-# - data.mix_machine_types: True
+# - model.layers.encoder: [128, 64, 32, 16, 8]
+#   model.layers.decoder: [8, 16, 32, 64, 128]
+# - model.layers.encoder: [128, 128, 128, 128, 16]
+#   model.layers.decoder: [16, 128, 128, 128, 128]
+# - model.layers.encoder: [128, 128, 128, 128, 128, 8]
+#   model.layers.decoder: [8, 128, 128, 128, 128, 128]
+- finetune.lr: 0.01
+  finetune.epochs: 100
+- finetune.lr: 0.0001
+  finetune.epochs: 100
+- finetune.epochs: 200

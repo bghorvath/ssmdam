@@ -65,7 +65,7 @@ class AudioDataset(Dataset):
     ) -> None:
         self.file_list = file_list
         params = load_params()
-        self.fast_dev_run = params["data"]["fast_dev_run"]
+        # self.fast_dev_run = params["data"]["fast_dev_run"]
         self.seed = params["data"]["seed"]
         self.transform_type = params["data"]["transform"]["name"]
         self.segment = params["data"]["transform"]["segment"]
@@ -87,9 +87,9 @@ class AudioDataset(Dataset):
         }
         self.transform_func = self.transform_func(**transform_params)
 
-        if self.fast_dev_run and len(self.file_list) > 100:
-            random.seed(self.seed)
-            self.file_list = random.sample(self.file_list, 100)
+        # if self.fast_dev_run and len(self.file_list) > 100:
+        #     random.seed(self.seed)
+        #     self.file_list = random.sample(self.file_list, 100)
 
         self.attributes_list = self.get_attributes_list()
 
