@@ -12,7 +12,7 @@ def evaluate(run_id: str):
     params = load_params()
 
     run_dir = params["log"]["run_dir"]
-    model = params["model"]["name"]
+    model_name = params["model"]["name"]
 
     with mlflow.start_run(run_id=run_id) as mlrun:
         experiment_id = mlrun.info.experiment_id
@@ -32,7 +32,7 @@ def evaluate(run_id: str):
 
             data_module = AudioDataModule(file_list=file_list)
             input_size = data_module.calculate_input_size()
-            model = get_model(model=model, input_size=input_size)
+            model = get_model(model=model_name, input_size=input_size)
 
             trainer = Trainer(logger=logger)
 

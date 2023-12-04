@@ -1,5 +1,6 @@
 import os
 from tqdm import tqdm
+import torch
 from lightning import Trainer
 from lightning.pytorch.callbacks import ModelCheckpoint
 from lightning.pytorch.loggers import MLFlowLogger
@@ -15,7 +16,7 @@ def finetune(run_id: str):
     run_dir = params["log"]["run_dir"]
     epochs = params["finetune"]["epochs"]
     lr = params["finetune"]["lr"]
-    model = params["model"]["name"]
+    model_name = params["model"]["name"]
     fast_dev_run = params["data"]["fast_dev_run"]
 
     with mlflow.start_run(run_id=run_id) as mlrun:
@@ -35,9 +36,9 @@ def finetune(run_id: str):
             input_size = data_module.calculate_input_size()
             finetune_ckpt_dir = os.path.join(finetune_ckpt_root_dir, machine_type)
 
-            model = get_model(model=model, input_size=input_size, lr=lr)
+            model = get_model(model=model_name, input_size=input_size, lr=lr)
             if not os.path.exists(finetune_ckpt_dir):
-                model.load_from_checkpoint(train_ckpt_path)
+                model.load_state_dict(torch.load(train_ckpt_path)["state_dict"])
             model.freeze_encoder()
 
             checkpoint_callback = ModelCheckpoint(
