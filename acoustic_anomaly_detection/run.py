@@ -1,3 +1,5 @@
+import os
+import shutil
 import argparse
 from datetime import datetime
 import mlflow
@@ -42,6 +44,20 @@ def create_mlflow_run(params: dict) -> str:
     return run_id
 
 
+def copy_mlflow_run(run_dir: str, src_run_id: str, dst_run_id: str):
+    client = mlflow.tracking.MlflowClient()
+    src_exp_id = client.get_run(src_run_id).info.experiment_id
+    src_path = os.path.join(run_dir, src_exp_id, src_run_id)
+    dst_exp_id = client.get_run(dst_run_id).info.experiment_id
+    dst_path = os.path.join(run_dir, dst_exp_id, dst_run_id)
+    for copy_dir in ["artifacts", "metrics"]:
+        shutil.copytree(
+            os.path.join(src_path, copy_dir),
+            os.path.join(dst_path, copy_dir),
+            dirs_exist_ok=True,
+        )
+
+
 def start_run(args, run_id: str, params: dict):
     with mlflow.start_run(run_id=run_id):
         flatten_params = flatten_dict(params)
@@ -58,6 +74,23 @@ def start_run(args, run_id: str, params: dict):
 
     if args.evaluate:
         evaluate(run_id)
+
+
+def start_variational_run(
+    args,
+    params: dict,
+    run_id: str = None,
+):
+    param_variations = load_params(args.param_variations)
+
+    for variation in param_variations:
+        variation_combined = update_nested_dict(params, variation)
+        save_params(variation_combined)
+        variation_run_id = create_mlflow_run(variation_combined)
+        if run_id:
+            # if run_id is specified, copy metrics and artifacts from the specified run
+            copy_mlflow_run(params["log"]["run_dir"], run_id, variation_run_id)
+        start_run(args, variation_run_id, variation_combined)
 
 
 if __name__ == "__main__":
@@ -100,40 +133,48 @@ if __name__ == "__main__":
         args.finetune = True
         args.evaluate = True
 
-    # if run_id is specified, resume run
-    if args.run_id:
-        if args.param_variations:
-            raise ValueError(
-                "Cannot specify both --run_id and --param_variations. Parameter combinations are only supported for new runs."
-            )
+    if args.param_variations:
+        if args.run_id:
+            if args.train:
+                raise ValueError(
+                    "Cannot resume variational run from the training step."
+                )
+            else:
+                # start variational run's test/finetune/evaluate steps with the config and results of the specfied run
+                run_id = get_run_id(args.run_id)
 
-        run_id = get_run_id(args.run_id)
-
-        # if args.param is set, use that config, otherwise load it from the logged params
-        params = load_params(params_file=args.param, run_id=run_id)
-        save_params(params)
-
-        print(f"Resuming run with ID: {run_id}")
-        start_run(args, run_id, params)
+                # load config from logged params
+                params = load_params(args.param, run_id)
+                save_params(params)
+                print(f"Resuming variational run continuing from run ID: {run_id}")
+                start_variational_run(args, params, run_id=run_id)
+        else:
+            if not args.train:
+                raise ValueError(
+                    "Either specify --run_id to resume variational run or --train to start a new run."
+                )
+            else:
+                params = load_params(args.param)
+                # if args.param is specified, overwrite params.yaml
+                if args.param:
+                    save_params(params)
+                print(f"Starting variational run with params: {args.param}")
+                start_variational_run(args, params)
     else:
-        if not args.train:
-            raise ValueError(
-                "Either specify --run_id to resume run or --train to start a new run."
-            )
-
-        params = load_params(args.param)
-        # if args.param is specified, overwrite params.yaml
-        if args.param:
+        if args.run_id:
+            run_id = get_run_id(args.run_id)
+            params = load_params(args.param, run_id)
             save_params(params)
-
-        if not args.param_variations:
-            run_id = create_mlflow_run(params)
+            print(f"Resuming run with ID: {run_id}")
             start_run(args, run_id, params)
         else:
-            param_variations = load_params(args.param_variations)
-
-            for variation in param_variations:
-                variation_combined = update_nested_dict(params, variation)
-                save_params(variation_combined)
-                run_id = create_mlflow_run(variation_combined)
-                start_run(args, run_id, variation_combined)
+            if not args.train:
+                raise ValueError(
+                    "Either specify --run_id to resume run or --train to start a new run."
+                )
+            else:
+                params = load_params(args.param)
+                if args.param:
+                    save_params(params)
+                run_id = create_mlflow_run(params)
+                start_run(args, run_id, params)
