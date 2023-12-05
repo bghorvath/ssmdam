@@ -29,7 +29,8 @@ class Model(pl.LightningModule):
         self.model = params["model"]["name"]
         self.layers = params["model"]["layers"]
         self.max_fpr = params["classification"]["max_fpr"]
-        self.decision_threshold = 0.5  # params["classification"]["decision_threshold"]
+        self.decision_threshold = params["classification"]["decision_threshold"]
+        self.anomaly_score = params["classification"]["anomaly_score"]
         self.mix_machine_types = params["data"]["mix_machine_types"]
         self.transform_type = params["data"]["transform"]["name"]
         self.window_size = params["data"]["transform"]["window_size"]
@@ -145,6 +146,7 @@ class Model(pl.LightningModule):
         self.test_loss = defaultdict(list)
         self.test_y_true = defaultdict(list)
         self.test_domain = defaultdict(list)
+        self.roc = defaultdict(dict)
         self.performance_metrics = {}
 
     def on_test_epoch_end(self) -> None:
@@ -156,9 +158,9 @@ class Model(pl.LightningModule):
             domain_true = torch.tensor(
                 [domain_dict[domain] for domain in self.test_domain[machine_type]]
             )
-            error_score = self.calculate_error_score(loss)
+            error_score = self.calculate_anomaly_score(loss)
             # Calculate metrics for source and target domains combined
-            auc, p_auc, prec, recall, f1 = calculate_metrics(
+            auc, p_auc, prec, recall, f1, fpr, tpr = calculate_metrics(
                 error_score, y_true, self.max_fpr, self.decision_threshold
             )
 
@@ -168,6 +170,7 @@ class Model(pl.LightningModule):
             self.log(f"{machine_type}_recall_epoch", recall, prog_bar=True, logger=True)
             self.log(f"{machine_type}_f1_epoch", f1, prog_bar=True, logger=True)
 
+            self.roc[machine_type]["total"] = (fpr, tpr)
             machine_metrics = [auc, p_auc, prec, recall, f1]
 
             # Calculate metrics for source and target domains separately
@@ -181,12 +184,14 @@ class Model(pl.LightningModule):
                 # y_true_domain = y_true[domain_true == domain_dict[domain]]
                 # y_pred_domain = error_score[domain_true == domain_dict[domain]]
 
-                auc, p_auc, prec, recall, f1 = calculate_metrics(
+                auc, p_auc, prec, recall, f1, fpr, tpr = calculate_metrics(
                     y_pred_domain_auc,
                     y_true_domain_auc,
                     self.max_fpr,
                     self.decision_threshold,
                 )
+
+                self.roc[machine_type][domain] = (fpr, tpr)
 
                 self.log(
                     f"{machine_type}_{domain}_auc_epoch",
@@ -233,9 +238,9 @@ class Model(pl.LightningModule):
         elif self.loss_fn == "cross_entropy":
             return cross_entropy(y, attributes)
 
-    @staticmethod
-    def calculate_error_score(loss: torch.Tensor) -> torch.Tensor:
-        return min_max_scaler(loss)
+    def calculate_anomaly_score(self, loss: torch.Tensor) -> torch.Tensor:
+        if self.anomaly_score == "min_max":
+            return min_max_scaler(loss)
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
         return torch.optim.Adam(

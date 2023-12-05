@@ -4,7 +4,7 @@ from lightning.pytorch.loggers import MLFlowLogger
 import mlflow
 from acoustic_anomaly_detection.dataset import AudioDataModule, get_file_list
 from acoustic_anomaly_detection.model import get_model
-from acoustic_anomaly_detection.utils import save_metrics, load_params
+from acoustic_anomaly_detection.utils import load_params, save_metrics, plot_roc_curves
 
 
 def test(run_id: str):
@@ -35,4 +35,7 @@ def test(run_id: str):
         )
 
     metrics_dict = trainer.model.performance_metrics
+    roc_dict = trainer.model.roc
+
     save_metrics(metrics_dict, artifacts_dir, "test")
+    plot_roc_curves(roc_dict, artifacts_dir, "test")

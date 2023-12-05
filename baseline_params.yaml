@@ -39,7 +39,8 @@ finetune:
 
 classification:
   max_fpr: 0.1
-  decision_threshold: 0.9
+  decision_threshold: 0.5
+  anomaly_score: min_max
 
 model:
   name: ae

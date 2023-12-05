@@ -4,6 +4,7 @@ import yaml
 import sys
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 from scipy import stats
 import torch
 from torchmetrics.functional.classification import (
@@ -11,6 +12,7 @@ from torchmetrics.functional.classification import (
     binary_precision,
     binary_recall,
     binary_f1_score,
+    binary_roc,
 )
 import mlflow
 
@@ -106,7 +108,36 @@ def calculate_metrics(
     prec = binary_precision(y_pred, y_true, threshold=decision_threshold)
     recall = binary_recall(y_pred, y_true, threshold=decision_threshold)
     f1 = binary_f1_score(y_pred, y_true, threshold=decision_threshold)
-    return auc, p_auc, prec, recall, f1
+    fpr, tpr, _ = binary_roc(y_pred, y_true)
+    return auc, p_auc, prec, recall, f1, fpr, tpr
+
+
+def plot_roc_curves(roc_dict: dict, artifacts_dir: str, stage: str) -> None:
+    """
+    Plots ROC curves for each machine type and saves them to a PNG file.
+    """
+    roc_dict = flip_nested_dict(roc_dict)
+    fig, ax = plt.subplots(figsize=(30, 10), nrows=1, ncols=3)
+    for i, (domain, roc) in enumerate(roc_dict.items()):
+        plt.subplot(1, 3, i + 1)
+        plt.plot([0, 1], [0, 1], color="navy", linestyle="--")
+        plt.xlim([0.0, 1.0])
+        plt.ylim([0.0, 1.05])
+        plt.xlabel("False Positive Rate")
+        plt.ylabel("True Positive Rate")
+        plt.title(f"ROC curve ({domain})")
+        for machine_type, (fpr, tpr) in roc.items():
+            plt.plot(
+                fpr,
+                tpr,
+                label=machine_type,
+                linewidth=2,
+                alpha=0.8,
+            )
+    handles, labels = ax[0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc="lower right", ncol=5)
+    plt.savefig(os.path.join(artifacts_dir, f"{stage}_roc.png"))
+    plt.close()
 
 
 def save_metrics(metrics_dict: dict, artifacts_dir: str, stage: str):
@@ -196,6 +227,20 @@ def update_nested_dict(nested_dict: dict, flattened_dict: dict) -> dict:
                 nested_dict[keys[0]], {k[len(keys[0]) + 1 :]: v}
             )
     return nested_dict
+
+
+def flip_nested_dict(nested_dict: dict) -> dict:
+    """
+    Input: {"a": {"b": [1], "c": [2]}, "d": {"b": [3], "c": [4]}}
+    Returns: {"b": {"a": [1], "d": [3]}, "c": {"a": [2], "d": [4]}}
+    """
+    flipped_dict = {}
+    for k, v in nested_dict.items():
+        for k2, v2 in v.items():
+            if k2 not in flipped_dict:
+                flipped_dict[k2] = {}
+            flipped_dict[k2][k] = v2
+    return flipped_dict
 
 
 def convert_to_original_format(value: str):

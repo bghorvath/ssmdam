@@ -5,7 +5,7 @@ from lightning.pytorch.loggers import MLFlowLogger
 import mlflow
 from acoustic_anomaly_detection.dataset import AudioDataModule, get_file_list
 from acoustic_anomaly_detection.model import get_model
-from acoustic_anomaly_detection.utils import save_metrics, load_params
+from acoustic_anomaly_detection.utils import load_params, save_metrics, plot_roc_curves
 
 
 def evaluate(run_id: str):
@@ -24,6 +24,7 @@ def evaluate(run_id: str):
         file_list_iter = get_file_list("evaluate")
 
         metrics_dict = {}
+        roc_dict = {}
         for machine_type, file_list in tqdm(file_list_iter):
             ckpt_path = os.path.join(ckpt_root_dir, machine_type, "best.ckpt")
             if not os.path.exists(ckpt_path):
@@ -42,5 +43,7 @@ def evaluate(run_id: str):
                 ckpt_path=ckpt_path,
             )
             metrics_dict.update(trainer.model.performance_metrics)
+            roc_dict.update(trainer.model.roc)
 
         save_metrics(metrics_dict, artifacts_dir, "evaluate")
+        plot_roc_curves(roc_dict, artifacts_dir, "evaluate")
