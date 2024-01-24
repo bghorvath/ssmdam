@@ -13,7 +13,6 @@ def train(run_id: str):
 
     run_dir = params["log"]["run_dir"]
     epochs = params["train"]["epochs"]
-    lr = params["train"]["lr"]
     model = params["model"]["name"]
 
     with mlflow.start_run(run_id=run_id) as mlrun:
@@ -26,7 +25,7 @@ def train(run_id: str):
         file_list = next(get_file_list("fit"))
         data_module = AudioDataModule(file_list=file_list)
         input_size = data_module.calculate_input_size()
-        model = get_model(model=model, input_size=input_size, lr=lr)
+        model = get_model(model=model, stage="train", input_size=input_size)
 
         checkpoint_callback = ModelCheckpoint(
             dirpath=ckpt_dir,

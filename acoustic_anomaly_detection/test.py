@@ -22,7 +22,7 @@ def test(run_id: str):
         file_list = next(get_file_list("test"))
         data_module = AudioDataModule(file_list=file_list)
         input_size = data_module.calculate_input_size()
-        model = get_model(model=model, input_size=input_size)
+        model = get_model(model=model, stage="test", input_size=input_size)
 
         logger = MLFlowLogger(run_id=run_id)
 

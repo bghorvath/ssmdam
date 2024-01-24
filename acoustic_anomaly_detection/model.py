@@ -14,15 +14,15 @@ from acoustic_anomaly_detection.utils import (
 )
 
 
-def get_model(model: str, input_size: int, lr: float = 1e-3) -> pl.LightningModule:
+def get_model(model: str, stage: str, input_size: int) -> pl.LightningModule:
     model_cls = {
         "ae": AutoEncoder,
     }[model]
-    return model_cls(input_size, lr)
+    return model_cls(stage, input_size)
 
 
 class Model(pl.LightningModule):
-    def __init__(self, input_size: int, lr: float) -> None:
+    def __init__(self, stage: str, input_size: int) -> None:
         super().__init__()
 
         params = load_params()
@@ -36,8 +36,10 @@ class Model(pl.LightningModule):
         self.window_size = params["data"]["transform"]["window_size"]
         self.stride = params["data"]["transform"]["stride"]
         self.input_size = input_size
-        self.lr = lr
+        self.stage = stage
         self.init_transformer()
+        if stage in ("train", "finetune"):
+            self.lr = params[stage]["lr"]
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         raise NotImplementedError
@@ -53,23 +55,16 @@ class Model(pl.LightningModule):
 
         if self.mix_machine_types:
             for i, machine_type in enumerate(machine_types):
-                self.train_error_scores[machine_type].append(loss[i].item())
+                self.train_error_scores[machine_type] += loss[i]
         else:
-            self.train_error_scores[machine_types[0]].append(loss.mean().item())
+            self.train_error_scores[machine_types[0]] += loss.mean()
 
-        self.log(
-            "train_loss",
-            loss.mean(),
-            on_step=True,
-            on_epoch=True,
-            prog_bar=True,
-            logger=True,
-            batch_size=x.shape[0],
-        )
         return loss.mean()
 
     def on_train_epoch_start(self) -> None:
-        self.train_error_scores = defaultdict(list)
+        self.train_error_scores = defaultdict(
+            lambda: torch.tensor(0.0, device=self.device)
+        )
 
         # Reshuffle the batches of the training dataloader
         if self.current_epoch > 0:
@@ -77,12 +72,22 @@ class Model(pl.LightningModule):
 
     def on_train_epoch_end(self) -> None:
         for machine_type, error_score in self.train_error_scores.items():
-            error_score = torch.tensor(error_score)
-            mean_error_score = torch.mean(error_score)
+            mean_error_score = error_score.mean().item()
 
             self.log(
                 f"{machine_type}_train_loss_epoch",
                 mean_error_score,
+                prog_bar=True,
+                logger=True,
+            )
+
+        if self.stage == "train":
+            train_loss_epoch = list(self.train_error_scores.values())
+            train_loss_epoch = torch.stack(train_loss_epoch).mean().item()
+
+            self.log(
+                "train_loss_epoch",
+                train_loss_epoch,
                 prog_bar=True,
                 logger=True,
             )
@@ -97,30 +102,32 @@ class Model(pl.LightningModule):
         x_hat = self(x)
         loss = self.calculate_loss(x, x_hat, attributes).mean()
 
-        self.val_error_scores[machine_type].append(loss.item())
+        self.val_error_scores[machine_type] += loss
 
-        self.log(
-            "val_loss",
-            loss,
-            on_step=True,
-            on_epoch=True,
-            prog_bar=True,
-            logger=True,
-            batch_size=x.shape[0],
-        )
         return loss
 
     def on_validation_epoch_start(self) -> None:  # TODO: Remove or fix
-        self.val_error_scores = defaultdict(list)
+        self.val_error_scores = defaultdict(
+            lambda: torch.tensor(0.0, device=self.device)
+        )
 
     def on_validation_epoch_end(self) -> None:
         for machine_type, error_score in self.val_error_scores.items():
-            error_score = torch.tensor(error_score)
-            mean_error_score = torch.mean(error_score)
+            mean_error_score = error_score.mean().item()
 
             self.log(
                 f"{machine_type}_val_loss_epoch",
                 mean_error_score,
+                prog_bar=True,
+                logger=True,
+            )
+        if self.stage == "train":
+            val_loss_epoch = list(self.val_error_scores.values())
+            val_loss_epoch = torch.stack(val_loss_epoch).mean().item()
+
+            self.log(
+                "val_loss_epoch",
+                val_loss_epoch,
                 prog_bar=True,
                 logger=True,
             )
@@ -268,8 +275,8 @@ class AutoEncoder(Model):
     Source: https://github.com/nttcslab/dcase2023_task2_baseline_ae/blob/main/networks/dcase2023t2_ae/network.py
     """
 
-    def __init__(self, input_size: int, lr: float) -> None:
-        super().__init__(input_size, lr)
+    def __init__(self, stage: str, input_size: int) -> None:
+        super().__init__(stage, input_size)
         self.loss_fn = "mse"
         self.init_encoder_decoder()
 
