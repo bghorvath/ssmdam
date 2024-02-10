@@ -1,4 +1,4 @@
-name: asd
+name: ssmdam
 channels:
   - defaults
   - pytorch
