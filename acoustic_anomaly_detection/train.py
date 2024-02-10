@@ -29,7 +29,7 @@ def train(run_id: str):
 
         checkpoint_callback = ModelCheckpoint(
             dirpath=ckpt_dir,
-            monitor="val_loss",
+            monitor="val_loss_epoch",
             mode="min",
             filename="best",
             save_top_k=1,

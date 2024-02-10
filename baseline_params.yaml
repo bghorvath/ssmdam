@@ -43,7 +43,7 @@ classification:
   anomaly_score: min_max
 
 model:
-  name: ae
+  name: ssmdam
   layers:
     encoder: [128, 128, 128, 128, 8]
     decoder: [8, 128, 128, 128, 128]

@@ -1,11 +1,12 @@
 import os
 import random
+import pickle
+from sklearn.preprocessing import LabelEncoder
 import torch
 from torch.utils.data import Dataset, DataLoader, BatchSampler
 import torchaudio
-from torchaudio.transforms import MelSpectrogram, MFCC, Spectrogram, AmplitudeToDB
 from lightning.pytorch import LightningDataModule
-from transformers import AutoProcessor
+import mlflow
 from acoustic_anomaly_detection.utils import get_attributes, load_params
 
 
@@ -35,27 +36,36 @@ def get_file_list(stage: str) -> list or tuple[str, list]:
         yield file_list
 
 
-class ASTProcessor(torch.nn.Module):
-    """
-    Audio Spectrogram Transformer AutoEncoder
-    Source: https://huggingface.co/transformers/model_doc/audio-spectrogram-transformer.html
-    """
+def get_label_list(stage: str = None) -> list:
+    fit_paths = [path for data_path in get_file_list("fit") for path in data_path]
+    finetune_paths = [
+        path for _, data_paths in get_file_list("finetune") for path in data_paths
+    ]
+    all_paths = fit_paths + finetune_paths
+    if stage == "fit":
+        file_paths = fit_paths
+    elif stage == "finetune":
+        file_paths = finetune_paths
+    else:
+        file_paths = all_paths
 
-    def __init__(self):
-        super().__init__()
-        self.ast = AutoProcessor.from_pretrained(
-            "MIT/ast-finetuned-audioset-10-10-0.4593"
-        )
-        params = load_params()
-        self.sr = params["data"]["transform"]["sr"]
+    attributes_list = [get_attributes(path) for path in file_paths]
+    return [create_label(attributes) for attributes in attributes_list]
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.ast(
-            x.squeeze(0),
-            sampling_rate=self.sr,
-            return_tensors="pt",
-        )
-        return x["input_values"]
+
+def create_label(attributes: list[dict[str, str]]) -> list[str]:
+    return "_".join([f"{k}_{v}" for k, v in attributes.items()])
+
+
+def fit_label_encoder() -> None:
+    label_list = get_label_list()
+    label_encoder = LabelEncoder()
+    label_encoder.fit(label_list)
+
+    with open("label_encoder.pkl", "wb") as f:
+        pickle.dump(label_encoder, f)
+
+    mlflow.log_artifact("label_encoder.pkl")
 
 
 class AudioDataset(Dataset):
@@ -67,25 +77,10 @@ class AudioDataset(Dataset):
         params = load_params()
         # self.fast_dev_run = params["data"]["fast_dev_run"]
         self.seed = params["data"]["seed"]
-        self.transform_type = params["data"]["transform"]["name"]
         self.segment = params["data"]["transform"]["segment"]
         self.sr = params["data"]["transform"]["sr"]
         self.duration = params["data"]["transform"]["duration"]
-        self.transform_params = params["data"]["transform"]
         self.length = self.sr * self.duration
-
-        self.transform_func = {
-            "mel_spectrogram": MelSpectrogram,
-            "mfcc": MFCC,
-            "spectrogram": Spectrogram,
-            "ast": ASTProcessor,
-        }[self.transform_type]
-        transform_params = {
-            k: v
-            for k, v in self.transform_params.items()
-            if k in self.transform_func.__init__.__code__.co_varnames
-        }
-        self.transform_func = self.transform_func(**transform_params)
 
         # if self.fast_dev_run and len(self.file_list) > 100:
         #     random.seed(self.seed)
@@ -93,13 +88,16 @@ class AudioDataset(Dataset):
 
         self.attributes_list = self.get_attributes_list()
 
+        with open("label_encoder.pkl", "rb") as f:
+            self.label_encoder = pickle.load(f)
+
     def get_attributes_list(self):
         attributes_list = [get_attributes(fp) for fp in self.file_list]
 
-        all_keys = set().union(*(attr.keys() for attr in attributes_list))
-        for attr in attributes_list:
-            for key in all_keys:
-                attr.setdefault(key, "None")
+        # all_keys = set().union(*(attr.keys() for attr in attributes_list))
+        # for attr in attributes_list:
+        #     for key in all_keys:
+        #         attr.setdefault(key, "None")
 
         return attributes_list
 
@@ -132,17 +130,17 @@ class AudioDataset(Dataset):
             # signal = self.segment(signal)
         else:
             signal = self.cut(signal)
-        signal = self.transform_func(signal)
-        signal = signal.squeeze(0)
-        if self.transform_type == "ast":
-            return signal
-        signal = AmplitudeToDB(stype="power")(signal)
-        signal = signal.transpose(0, 1)
+        # signal = signal.squeeze(0)
         return signal
 
-    def __getitem__(self, idx) -> tuple[torch.Tensor, dict[str, str]]:
+    def __getitem__(self, idx) -> tuple[torch.Tensor, torch.Tensor, dict[str, str]]:
         file_path = self.file_list[idx]
         attributes = self.attributes_list[idx]
+        label = create_label(attributes)
+        label = torch.nn.functional.one_hot(
+            torch.tensor(self.label_encoder.transform([label])),
+            num_classes=len(self.label_encoder.classes_),
+        ).squeeze(0)
         signal, sr = torchaudio.load(file_path)
         if signal is None:
             raise ValueError(
@@ -156,7 +154,7 @@ class AudioDataset(Dataset):
         transformed_data = self.transform(signal, sr)
         if transformed_data is None or any(v is None for v in transformed_data):
             raise ValueError(f"Data loading failed for index: {idx}")
-        return transformed_data, attributes
+        return transformed_data, label, attributes
 
 
 class AudioDataModule(LightningDataModule):

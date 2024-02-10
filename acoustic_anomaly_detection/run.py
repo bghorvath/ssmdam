@@ -7,6 +7,7 @@ from acoustic_anomaly_detection.train import train
 from acoustic_anomaly_detection.test import test
 from acoustic_anomaly_detection.finetune import finetune
 from acoustic_anomaly_detection.evaluate import evaluate
+from acoustic_anomaly_detection.dataset import fit_label_encoder
 from acoustic_anomaly_detection.utils import (
     flatten_dict,
     update_nested_dict,
@@ -38,6 +39,7 @@ def create_mlflow_run(params: dict) -> str:
 
     run_name = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with mlflow.start_run(run_name=run_name) as mlrun:
+        fit_label_encoder()
         run_id = mlrun.info.run_id
         print(f"Started run with ID: {run_id}")
 
@@ -132,6 +134,8 @@ if __name__ == "__main__":
         args.test = True
         args.finetune = True
         args.evaluate = True
+
+    mlflow.set_tracking_uri("file:mlruns")
 
     if args.param_variations:
         if args.run_id:
